@@ -63,12 +63,14 @@ object eval {
     exp match {
       case I(_) | B(_) => cont.f(exp)
       case S(sym) => eval_var(exp, env, cont)
+      /*
       case P(S("quote"), _) => eval_quote(exp, env, cont)
       case P(S("if"), _) => eval_if(exp, env, cont)
       case P(S("set!"), _) => eval_set_bang(exp, env, cont)
       case P(S("lambda"), _) => eval_lambda(exp, env, cont)
       case P(S("begin"), body) => eval_begin(body, env, cont)
       case P(S("define"), _) => eval_define(exp, env, cont)
+      */
       case P(fun, args) => eval_application(exp, env, cont)
     }
   }
@@ -102,6 +104,13 @@ object eval {
     }))
   }
 
+  def eval_fsubr(exp: Value, env: Env, cont: Cont): Value = exp match {
+    case P(_, P(params, body)) => cont.f(Fsubr({ =>
+      eval_begin(body, extend(env, params, args), F { v => v })
+    }))
+  }
+
+
   def eval_begin(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(e, N) => base_eval(e, env, cont)
     case P(e, es) => base_eval(e, env, F { _ => eval_begin(es, env, cont) })
@@ -121,7 +130,7 @@ object eval {
   def eval_application(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(fun, args) => base_eval(fun, env, F {
       case F(f) => evlist(args, env, F { vas => cont.f(f(vas)) })
-      /*case Fsubr(f) => f(EvalArgs(exp, env, cont)) */
+      case Fsubr(f) => f(EvalArgs(exp, env, cont))
     })
   }
 
@@ -132,6 +141,7 @@ object eval {
 
   def extend(env: Env, params: Value, args: Value): Env = {
     val frame = valueOf((list(params) zip list(args)).map { t => P(t._1, t._2) })
+    // println("NEW FRAME: " + frame)
     P(frame, env)
   }
 
@@ -171,13 +181,13 @@ object eval {
     P(S("*"), F({ args => I(toIntList(args).product) })),
     P(S("-"), F({ case P(I(a), P(I(b), N)) => I(a - b) })),
 
-    /*P(S("quote"), F({ case EvalArgs(value, env, cont) => eval_quote(value, env, cont)})),
-    P(S("if"), F({ case EvalArgs(value, env, cont) => eval_if(value, env, cont)})),
+    P(S("quote"), Fsubr({ case EvalArgs(value, env, cont) => eval_quote(value, env, cont)})),
+    P(S("if"), Fsubr({ case EvalArgs(value, env, cont) => eval_if(value, env, cont)})),
 
-    P(S("set!"), F({ case EvalArgs(value, env, cont) => eval_set_bang(value, env, cont)})),
-    P(S("lambda"), F({ case EvalArgs(value, env, cont) => eval_lambda(value, env, cont)})),
-    P(S("begin"), F({ case EvalArgs(value, env, cont) => eval_begin(value, env, cont)})),
-    P(S("define"), F({ case EvalArgs(value, env, cont) => eval_define(value, env, cont)})) */
+    P(S("set!"), Fsubr({ case EvalArgs(value, env, cont) => eval_set_bang(value, env, cont)})),
+    P(S("lambda"), Fsubr({ case EvalArgs(value, env, cont) => eval_lambda(value, env, cont)})),
+    P(S("begin"), Fsubr({ case EvalArgs(value, env, cont) => eval_begin(value, env, cont)})),
+    P(S("define"), Fsubr({ case EvalArgs(value, env, cont) => eval_define(value, env, cont)}))
   )), N)
 }
 
