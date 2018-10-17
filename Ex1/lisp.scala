@@ -75,6 +75,10 @@ object eval {
     }
   }
 
+  def eval_eval(exp: Value, env: Env, cont: Cont): Value = exp match {
+    case P(_, P(body, N)) => base_eval(body, env,cont)
+  }
+
   def eval_var(exp: Value, env: Env, cont: Cont): Value = exp match {
     case S(x) => cont.f(get(env, x))
   }
@@ -84,11 +88,9 @@ object eval {
   }
 
   def eval_if(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(c, P(a, P(b, N)))) => base_eval(c, env, F { cv =>
-      cv match {
-        case B(false) => base_eval(b, env, cont)
-        case B(true) => base_eval(a, env, cont)
-      }
+    case P(_, P(c, P(a, P(b, N)))) => base_eval(c, env, F {
+      case B(false) => base_eval(b, env, cont)
+      case B(true) => base_eval(a, env, cont)
     })
   }
 
@@ -105,7 +107,7 @@ object eval {
   }
 
   def eval_fsubr(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(params, body)) => cont.f(Fsubr({ =>
+    case P(_, P(params, body)) => cont.f(Fsubr({ case args@EvalArgs(exp1, env1, cont1) =>
       eval_begin(body, extend(env, params, args), F { v => v })
     }))
   }
@@ -181,13 +183,18 @@ object eval {
     P(S("*"), F({ args => I(toIntList(args).product) })),
     P(S("-"), F({ case P(I(a), P(I(b), N)) => I(a - b) })),
 
-    P(S("quote"), Fsubr({ case EvalArgs(value, env, cont) => eval_quote(value, env, cont)})),
-    P(S("if"), Fsubr({ case EvalArgs(value, env, cont) => eval_if(value, env, cont)})),
+    P(S("quote"), Fsubr({ case EvalArgs(value, env, cont) => eval_quote(value, env, cont) })),
+    P(S("if"), Fsubr({ case EvalArgs(value, env, cont) => eval_if(value, env, cont) })),
 
-    P(S("set!"), Fsubr({ case EvalArgs(value, env, cont) => eval_set_bang(value, env, cont)})),
-    P(S("lambda"), Fsubr({ case EvalArgs(value, env, cont) => eval_lambda(value, env, cont)})),
-    P(S("begin"), Fsubr({ case EvalArgs(value, env, cont) => eval_begin(value, env, cont)})),
-    P(S("define"), Fsubr({ case EvalArgs(value, env, cont) => eval_define(value, env, cont)}))
+    P(S("car"), F({case P(a, _) => a})),
+    P(S("cdr"), F({case P(_, b) => b})),
+
+    P(S("set!"), Fsubr({ case EvalArgs(value, env, cont) => eval_set_bang(value, env, cont) })),
+    P(S("lambda"), Fsubr({ case EvalArgs(value, env, cont) => eval_lambda(value, env, cont) })),
+    P(S("begin"), Fsubr({ case EvalArgs(value, env, cont) => eval_begin(value, env, cont) })),
+    P(S("define"), Fsubr({ case EvalArgs(value, env, cont) => eval_define(value, env, cont) })),
+    P(S("fsubr"), Fsubr({ case EvalArgs(v, e, c) => eval_fsubr(v, e, c) })),
+    P(S("eval"), Fsubr({ case EvalArgs(v, e, c) => eval_eval(v, e, c) }))
   )), N)
 }
 
@@ -285,7 +292,7 @@ class lisp_Tests extends TestSuite {
     assertResult(B(true))(ev("(odd 7)"))
   }
 
-  ignore("eval") {
+  test("eval") {
     ev("(define x 1)")
     assertResult(I(1))(ev("(eval 'x)"))
     assertResult(I(2))(ev("(* (eval 'x) 2)"))
@@ -330,7 +337,7 @@ class lisp_Tests extends TestSuite {
     assertResult("((test 2 4) (test 1 2))")(show(ev("history")))
   }
 
-  ignore("fsubr") {
+  test("fsubr") {
     ev("(define my-exp (fsubr (exp env cont) exp))")
     assertResult("(my-exp x)")(show(ev("(my-exp x)")))
     ev("(define jump (fsubr (exp env cont) (eval (car (cdr exp)))))")
