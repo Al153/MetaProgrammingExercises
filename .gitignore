@@ -7,4 +7,7 @@ target
 .idea
 out
 
+ex1/out
+ex1/target
+
 project

@@ -12,7 +12,14 @@ object ast {
   case object N extends Value // Nil
   class P(var car: Value, var cdr: Value) extends Value // Pair
   {
-    override def toString = s"P($car, $cdr)"
+    override def toString = this.asTail("(")
+
+    def asTail(already: String): String =
+      cdr match {
+        case N => s"$already$car)"
+        case that: P => that.asTail(s"$already$car, ")
+        case _ => s"$already$car . $cdr)"
+      }
 
     // NOTE: we don't override equals to respect referential equality
   }
@@ -26,7 +33,7 @@ object ast {
     }
   }
 
-  object EvalArgs {
+  object InterpreterEnv {
     def apply(expr: Value, env: Env, cont: Cont): P = P(expr, P(env, P(cont, N)))
 
     def unapply(arg: Value): Option[(Value, Env, Cont)] = arg match {
@@ -36,7 +43,9 @@ object ast {
   }
 
   case class F(f: Value => Value) extends Value // Procedures
-  case class Fsubr(f: Value => Value) extends Value
+  case class FSubr(f: Value => Value) extends Value
+
+  case class FExpr(f: Value => Value) extends Value
 
   // Env is a list of frames (each a list of key/value pairs)
   // We use object structures for easy reification/reflection.
@@ -60,23 +69,16 @@ import lisp.ast._
 object eval {
   //def base_eval(exp: Value, env: Env, cont: Cont): Value = {
   def base_eval(exp: Value, env: Env, cont: Cont): Value = debug(s"eval ${pp.show(exp)}", env, cont) { (cont) =>
+    println("Evalling: " + exp)
     exp match {
       case I(_) | B(_) => cont.f(exp)
       case S(sym) => eval_var(exp, env, cont)
-      /*
-      case P(S("quote"), _) => eval_quote(exp, env, cont)
-      case P(S("if"), _) => eval_if(exp, env, cont)
-      case P(S("set!"), _) => eval_set_bang(exp, env, cont)
-      case P(S("lambda"), _) => eval_lambda(exp, env, cont)
-      case P(S("begin"), body) => eval_begin(body, env, cont)
-      case P(S("define"), _) => eval_define(exp, env, cont)
-      */
       case P(fun, args) => eval_application(exp, env, cont)
     }
   }
 
   def eval_eval(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(body, N)) => base_eval(body, env,cont)
+    case P(_, P(body, N)) => base_eval(body, env, F({ v => base_eval(v, env, cont) }))
   }
 
   def eval_var(exp: Value, env: Env, cont: Cont): Value = exp match {
@@ -107,7 +109,17 @@ object eval {
   }
 
   def eval_fsubr(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(params, body)) => cont.f(Fsubr({ case args@EvalArgs(exp1, env1, cont1) =>
+    case P(_, P(params, body)) => cont.f(FSubr({ case args@InterpreterEnv(_, _, _) =>
+      println("Body = " + body)
+      println("Params = " + params)
+      println("args = " + args)
+
+      eval_begin(body, extend(env, params, args), F { v => v })
+    }))
+  }
+
+  def eval_fexpr(exp: Value, env: Env, cont: Cont) = exp match {
+    case P(_, P(params, body)) => cont.f(FExpr({args =>
       eval_begin(body, extend(env, params, args), F { v => v })
     }))
   }
@@ -132,7 +144,8 @@ object eval {
   def eval_application(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(fun, args) => base_eval(fun, env, F {
       case F(f) => evlist(args, env, F { vas => cont.f(f(vas)) })
-      case Fsubr(f) => f(EvalArgs(exp, env, cont))
+      case FSubr(f) => f(InterpreterEnv(exp, env, cont))
+      case FExpr(f) => cont.f(f(args))
     })
   }
 
@@ -183,18 +196,24 @@ object eval {
     P(S("*"), F({ args => I(toIntList(args).product) })),
     P(S("-"), F({ case P(I(a), P(I(b), N)) => I(a - b) })),
 
-    P(S("quote"), Fsubr({ case EvalArgs(value, env, cont) => eval_quote(value, env, cont) })),
-    P(S("if"), Fsubr({ case EvalArgs(value, env, cont) => eval_if(value, env, cont) })),
+    P(S("quote"), FSubr({ case InterpreterEnv(value, env, cont) => eval_quote(value, env, cont) })),
+    P(S("if"), FSubr({ case InterpreterEnv(value, env, cont) => eval_if(value, env, cont) })),
 
-    P(S("car"), F({case P(a, _) => a})),
-    P(S("cdr"), F({case P(_, b) => b})),
+    P(S("car"), F({ case P(a, _) => a })),
+    P(S("cdr"), F({ case P(_, b) => b })),
+    P(S("list"), F({ case l => l })),
+    P(S("cons"), F({ case P(a, P(b, N)) => P(a, b) })),
 
-    P(S("set!"), Fsubr({ case EvalArgs(value, env, cont) => eval_set_bang(value, env, cont) })),
-    P(S("lambda"), Fsubr({ case EvalArgs(value, env, cont) => eval_lambda(value, env, cont) })),
-    P(S("begin"), Fsubr({ case EvalArgs(value, env, cont) => eval_begin(value, env, cont) })),
-    P(S("define"), Fsubr({ case EvalArgs(value, env, cont) => eval_define(value, env, cont) })),
-    P(S("fsubr"), Fsubr({ case EvalArgs(v, e, c) => eval_fsubr(v, e, c) })),
-    P(S("eval"), Fsubr({ case EvalArgs(v, e, c) => eval_eval(v, e, c) }))
+    P(S("set!"), FSubr({ case InterpreterEnv(value, env, cont) => eval_set_bang(value, env, cont) })),
+    P(S("lambda"), FSubr({ case InterpreterEnv(value, env, cont) => eval_lambda(value, env, cont) })),
+    P(S("begin"), FSubr({ case InterpreterEnv(value, env, cont) => eval_begin(value, env, cont) })),
+    P(S("define"), FSubr({ case InterpreterEnv(value, env, cont) => eval_define(value, env, cont) })),
+    P(S("fsubr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fsubr(v, e, c) })),
+    P(S("eval"), FSubr({ case InterpreterEnv(v, e, c) => eval_eval(v, e, c) })),
+
+    P(S("fexpr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fexpr(v, e, c) }))
+
+
   )), N)
 }
 
@@ -277,13 +296,13 @@ class lisp_Tests extends TestSuite {
     assertResult(I(720))(ev("(factorial 6)"))
   }
 
-  ignore("eq?") {
+  test("eq?") {
     assertResult(B(true))(ev("(eq? 1 1)"))
     assertResult(B(false))(ev("(eq? 1 2)"))
     assertResult(B(false))(ev("(eq? (list 1) (list 1))"))
   }
 
-  ignore("(odd 7)") {
+  test("(odd 7)") {
     ev(
       """(begin
 (define even (lambda (n) (if (eq? n 0) #t (odd (- n 1)))))
@@ -298,12 +317,12 @@ class lisp_Tests extends TestSuite {
     assertResult(I(2))(ev("(* (eval 'x) 2)"))
   }
 
-  ignore("fexpr if") {
+  test("fexpr if") {
     ev("(define my-if (fexpr (c a b) (if (eval c) (eval a) (eval b))))")
     assertResult(I(1))(ev("(my-if #t 1 bad)"))
   }
 
-  ignore("list") {
+  test("list") {
     // NOTE: we use `show` to compare pairs,
     // to by-pass referential equality.
 
@@ -318,7 +337,7 @@ class lisp_Tests extends TestSuite {
     assertResult(show(P(I(4), N)))(show(ev("(cons 4 history)")))
   }
 
-  ignore("fexpr history") {
+  test("fexpr history") {
     ev("(define history '())")
     ev(
       """(define save! (fexpr (lhs rhs)
@@ -340,15 +359,24 @@ class lisp_Tests extends TestSuite {
   test("fsubr") {
     ev("(define my-exp (fsubr (exp env cont) exp))")
     assertResult("(my-exp x)")(show(ev("(my-exp x)")))
+
+    println("Passed case 1")
+
     ev("(define jump (fsubr (exp env cont) (eval (car (cdr exp)))))")
+
+    println("Eval-ed 2.1")
+
     assertResult(I(2))(ev("(- 1 (jump 2))"))
+
+    println("Passed case 2")
+
     ev("(define fall (fsubr (exp env cont) 1))")
     assertResult(I(1))(ev("(* 2 (fall))"))
     // NOTE: to work nicely with composing continuations,
     // we would have to adjust the calling conventions...
   }
 
-  ignore("fsubr history") {
+  test("fsubr history") {
     ev("(define old-set! set!)")
     ev("(define history '())")
     ev(
