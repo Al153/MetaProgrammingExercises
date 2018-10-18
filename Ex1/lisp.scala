@@ -10,9 +10,10 @@ object ast {
   case class I(n: Int) extends Value // Int
   case class S(sym: String) extends Value // Symbol
   case object N extends Value // Nil
+  case class C(f: Value => Value) extends Value// continuation
   class P(var car: Value, var cdr: Value) extends Value // Pair
   {
-    override def toString = this.asTail("(")
+    override def toString: String = this.asTail("(")
 
     def asTail(already: String): String =
       cdr match {
@@ -51,7 +52,7 @@ object ast {
   // We use object structures for easy reification/reflection.
   type Env = P
   // Similarly, continuations are values too...
-  type Cont = F
+  type Cont = C
 
   def list(e: Value): List[Value] = e match {
     case N => Nil
@@ -68,7 +69,7 @@ import lisp.ast.{P, _}
 
 object eval {
   //def base_eval(exp: Value, env: Env, cont: Cont): Value = {
-  def base_eval(exp: Value, env: Env, cont: Cont): Value = debug(s"eval ${pp.show(exp)}", env, cont) { (cont) =>
+  def base_eval(exp: Value, env: Env, cont: Cont): Value = debug(s"eval ${pp.show(exp)}", env, cont) { cont =>
     exp match {
       case I(_) | B(_) => cont.f(exp)
       case _: S => eval_var(exp, env, cont)
@@ -77,7 +78,7 @@ object eval {
   }
 
   def eval_eval(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(body, N)) => base_eval(body, env, F({ v => base_eval(v, env, cont) }))
+    case P(_, P(body, N)) => base_eval(body, env, C({ v => base_eval(v, env, cont) }))
   }
 
   def eval_var(exp: Value, env: Env, cont: Cont): Value = exp match {
@@ -89,34 +90,34 @@ object eval {
   }
 
   def eval_if(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(c, P(a, P(b, N)))) => base_eval(c, env, F {
+    case P(_, P(c, P(a, P(b, N)))) => base_eval(c, env, C {
       case B(false) => base_eval(b, env, cont)
       case B(true) => base_eval(a, env, cont)
     })
   }
 
   def eval_set_bang(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(S(x), P(rhs, N))) => base_eval(rhs, env, F { v =>
+    case P(_, P(S(x), P(rhs, N))) => base_eval(rhs, env, C { v =>
       cont.f(set(env, x, v))
     })
   }
 
   def eval_lambda(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(_, P(params, body)) => cont.f(F({ args =>
-      eval_begin(body, extend(env, params, args), F { v => v })
+      eval_begin(body, extend(env, params, args), C { v => v })
     }))
   }
 
   def eval_fsubr(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(_, P(params, body)) =>
       cont.f(FSubr({ case args@InterpreterEnv(e, _, _) =>
-        eval_begin(body, extend(env, params, args), F { v => v })
+        eval_begin(body, extend(env, params, args), C { v => v })
       }))
   }
 
-  def eval_fexpr(exp: Value, env: Env, cont: Cont) = exp match {
+  def eval_fexpr(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(_, P(params, body)) => cont.f(FExpr({ args =>
-      eval_begin(body, extend(env, params, args), F { v => v })
+      eval_begin(body, extend(env, params, args), C { v => v })
     }))
   }
 
@@ -124,7 +125,7 @@ object eval {
   def eval_begin(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(e, N) =>
       base_eval(e, env, cont)
-    case P(e, es) => base_eval(e, env, F { _ => eval_begin(es, env, cont) })
+    case P(e, es) => base_eval(e, env, C { _ => eval_begin(es, env, cont) })
   }
 
   private def getAssignments(value: ast.Value, env: Env, cont: Cont): Value =
@@ -132,46 +133,50 @@ object eval {
       case N => cont.f(P(N, N))
       case P(P(x: S, P(v, N)), rest) =>
 
-        getAssignments(rest, env, F
+        getAssignments(rest, env, C
           {
             case P(vars, vals) =>
-              base_eval(v, env, F { r => cont.f(P(P(x, vars), P(r, vals))) })
+              base_eval(v, env, C { r => cont.f(P(P(x, vars), P(r, vals))) })
           }
         )
     }
 
   def eval_let(exp: ast.Value, env: ast.Env, cont: ast.Cont): Value = exp match {
     case P(_, P(assignments, P(body, N))) =>
-     getAssignments(assignments, env, F {case P(vars, values) =>
+     getAssignments(assignments, env, C {case P(vars, values) =>
        base_eval(body, extend(env, vars, values), cont)
      })
-
-
   }
 
+  def eval_letcc(exp: ast.Value, env: ast.Env, cont: ast.Cont): Value = exp match {
+    case P(_, P(s: S, P(body, N))) =>
+      base_eval(body, extend(env, P(s, N), P(cont, N)), cont)
+  }
+
+
   def eval_define(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(r@S(name), body)) => {
+    case P(_, P(r: S, body)) =>
       val p = P(r, Undefined)
       env.car = P(p, env.car)
-      eval_begin(body, env, F { v =>
+      eval_begin(body, env, C { v =>
         p.cdr = v
         cont.f(r)
       })
-    }
   }
 
   def eval_application(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(fun, args) => base_eval(fun, env, F {
-      case F(f) => evlist(args, env, F { vas => cont.f(f(vas)) })
+    case P(fun, args) => base_eval(fun, env, C {
+      case F(f) => evlist(args, env, C { vas => cont.f(f(vas)) })
       case FSubr(f) =>
         f(InterpreterEnv(exp, env, cont))
       case FExpr(f) => cont.f(f(args))
+      case C(f) => evlist(args, env, C {case P(res, N) => f(res)})
     })
   }
 
   def evlist(exp: Value, env: Env, cont: Cont): Value = exp match {
     case N => cont.f(N)
-    case P(first, rest) => base_eval(first, env, F { v => evlist(rest, env, F { vs => cont.f(P(v, vs)) }) })
+    case P(first, rest) => base_eval(first, env, C { v => evlist(rest, env, C { vs => cont.f(P(v, vs)) }) })
   }
 
   def extend(env: Env, params: Value, args: Value): Env = {
@@ -209,7 +214,7 @@ object eval {
       case P(I(a), rest) => a :: toIntList(rest)
     }
 
-  lazy val init_env: Env = P(valueOf(List(
+  def make_init_env(): Env = P(valueOf(List(
     P(S("eq?"), F({ case P(a, P(b, N)) => B(a == b) })),
     P(S("<"), F({ case P(I(a), P(I(b), N)) => B(a < b) })),
     P(S("*"), F({ args => I(toIntList(args).product) })),
@@ -218,10 +223,9 @@ object eval {
 
     P(S("quote"), FSubr({ case InterpreterEnv(value, env, cont) => eval_quote(value, env, cont) })),
     P(S("if"), FSubr({ case InterpreterEnv(value, env, cont) => eval_if(value, env, cont) })),
-
     P(S("car"), F({ case P(P(a, _), N) => a })),
     P(S("cdr"), F({ case P(P(_, b), N) => b })),
-    P(S("list"), F({ case l => l })),
+    P(S("list"), F(l => l)),
     P(S("cons"), F({ case P(a, P(b, N)) => P(a, b) })),
 
     P(S("set!"), FSubr({ case InterpreterEnv(value, env, cont) => eval_set_bang(value, env, cont) })),
@@ -235,7 +239,8 @@ object eval {
 
     P(S("fsubr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fsubr(v, e, c) })),
 
-    P(S("let"), FSubr({ case InterpreterEnv(v, e, c) => eval_let(v, e, c) }))
+    P(S("let"), FSubr({ case InterpreterEnv(v, e, c) => eval_let(v, e, c) })),
+    P(S("let/cc"), FSubr({ case InterpreterEnv(v, e, c) => eval_letcc(v, e, c) })),
   )), N)
 }
 
@@ -243,43 +248,43 @@ import scala.util.parsing.combinator._
 
 object parser extends JavaTokenParsers with PackratParsers {
   def exp: Parser[Value] =
-    "#f" ^^ { case _ => B(false) } |
-      "#t" ^^ { case _ => B(true) } |
-      wholeNumber ^^ { case s => I(s.toInt) } |
-      """[^\s\(\)'"]+""".r ^^ { case s => S(s) } |
-      "'" ~> exp ^^ { case s => P(S("quote"), P(s, N)) } |
-      "()" ^^ { case _ => N } |
-      "(" ~> exps <~ ")" ^^ { case vs => vs }
+    "#f" ^^ (_ => B(false)) |
+      "#t" ^^ (_ => B(true)) |
+      wholeNumber ^^ (s => I(s.toInt)) |
+      """[^\s\(\)'"]+""".r ^^ (s => S(s)) |
+      "'" ~> exp ^^ (s => P(S("quote"), P(s, N))) |
+      "()" ^^ (_ => N) |
+      "(" ~> exps <~ ")" ^^ (vs => vs)
 
   def exps: Parser[Value] =
     exp ~ exps ^^ { case v ~ vs => P(v, vs) } |
-      exp ^^ { case v => P(v, N) }
+      exp ^^ (v => P(v, N))
 }
 
 import lisp.eval._
 import lisp.parser._
 
 object repl {
-  var global_env = init_env
+  var global_env: Env = make_init_env()
 
-  def parse(s: String) = {
+  def parse(s: String): Value = {
     val Success(e, _) = parseAll(exp, s)
     e
   }
 
-  def evl(e: Value) = {
-    base_eval(e, global_env, F { v => v })
+  def evl(e: Value): Value = {
+    base_eval(e, global_env, C { v => v })
   }
 
-  def ev(s: String) = evl(parse(s))
+  def ev(s: String): Value = evl(parse(s))
 
-  def clean() = {
-    global_env = init_env
+  def clean(): Unit = {
+    global_env = make_init_env()
   }
 }
 
 object pp {
-  def addParen(p: (Boolean, String)) = {
+  def addParen(p: (Boolean, String)): String = {
     val (need_paren, s) = p
     if (need_paren) "(" + s + ")" else s
   }
@@ -298,11 +303,11 @@ object pp {
     case _ => (false, v.toString)
   }
 
-  def show(v: Value) = addParen(pp(v))
+  def show(v: Value): String = addParen(pp(v))
 
-  def display(v: Value) = print(show(v))
+  def display(v: Value): Unit = print(show(v))
 
-  def newline() = println("")
+  def newline(): Unit = println("")
 }
 
 import lisp.pp._
@@ -432,6 +437,15 @@ class lisp_Tests extends TestSuite {
   test("let3") {
     assertResult(I(3))(ev("(let ((x 1)(y 2)) (+ x y))"))
   }
+
+  test("letcc1"){
+    assertResult(I(5))(ev("(let/cc k (+ (k 5) (k 7) 6))"))
+  }
+
+  test("letcc2"){
+    assertResult(I(2))(ev("(+ 1 (let/cc return (if #t (+ 4 (return 1)) 2)))"))
+    assertResult(I(3))(ev("(+ 1 (let/cc return (if #f (+ 4 (return 1)) 2)))"))
+  }
 }
 
 import lisp.ast._
@@ -441,13 +455,13 @@ object debug {
   var depth: Int = 0
   val indentTab = " "
 
-  def apply[T](msg: String, env: Env, cont: Cont)(body: Cont => T) = trace[T](msg, env, cont)(body)
+  def apply[T](msg: String, env: Env, cont: Cont)(body: Cont => T): T = trace[T](msg, env, cont)(body)
 
-  def trace[T](msg: String, env: Env, cont: Cont)(body: Cont => T) = {
+  def trace[T](msg: String, env: Env, cont: Cont)(body: Cont => T): T = {
     indentedDebug(s"==> ${pad(msg)}?")
     indentedDebug(env.format)
     depth += 1
-    val newCont = F { v =>
+    val newCont: Cont = C { v =>
       depth -= 1
       indentedDebug(s"<== ${pad(msg)} = ${pad(v.toString)}")
       cont.f(v)
@@ -455,12 +469,12 @@ object debug {
     body(newCont)
   }
 
-  def padding = indentTab * depth
+  def padding: String = indentTab * depth
 
-  def pad(s: String, padFirst: Boolean = false) =
+  def pad(s: String, padFirst: Boolean = false): String =
     s.split("\n").mkString(if (padFirst) padding else "", "\n" + padding, "")
 
-  def indentedDebug(msg: String) =
+  def indentedDebug(msg: String): Unit =
     if (enable) println(pad(msg, padFirst = true))
 
   implicit class EnvDeco(val env: Env) extends AnyVal {
