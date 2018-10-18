@@ -64,25 +64,30 @@ object ast {
   }
 }
 
-import lisp.ast._
+import lisp.ast.{P, _}
 
 object eval {
   //def base_eval(exp: Value, env: Env, cont: Cont): Value = {
   def base_eval(exp: Value, env: Env, cont: Cont): Value = debug(s"eval ${pp.show(exp)}", env, cont) { (cont) =>
-    println("Evalling: " + exp)
     exp match {
       case I(_) | B(_) => cont.f(exp)
-      case S(sym) => eval_var(exp, env, cont)
-      case P(fun, args) => eval_application(exp, env, cont)
+      case _: S => eval_var(exp, env, cont)
+      case _: P => eval_application(exp, env, cont)
     }
   }
 
   def eval_eval(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(body, N)) => base_eval(body, env, F({ v => base_eval(v, env, cont) }))
+    case P(_, P(body, N)) =>
+      println("Calling Eval on: " + body)
+      base_eval(body, env, F({ v => base_eval(v, env, cont) }))
   }
 
   def eval_var(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case S(x) => cont.f(get(env, x))
+    case S(x) => {
+      val e = get(env, x)
+      println(s"Lookup of $x gives $e")
+      cont.f(e)
+    }
   }
 
   def eval_quote(exp: Value, env: Env, cont: Cont): Value = exp match {
@@ -109,24 +114,24 @@ object eval {
   }
 
   def eval_fsubr(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(params, body)) => cont.f(FSubr({ case args@InterpreterEnv(_, _, _) =>
+    case P(_, P(params, body)) => cont.f(FSubr({ case args@InterpreterEnv(e, _, _) =>
       println("Body = " + body)
-      println("Params = " + params)
-      println("args = " + args)
+      println("expr passed = " + e)
 
       eval_begin(body, extend(env, params, args), F { v => v })
     }))
   }
 
   def eval_fexpr(exp: Value, env: Env, cont: Cont) = exp match {
-    case P(_, P(params, body)) => cont.f(FExpr({args =>
+    case P(_, P(params, body)) => cont.f(FExpr({ args =>
       eval_begin(body, extend(env, params, args), F { v => v })
     }))
   }
 
 
   def eval_begin(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(e, N) => base_eval(e, env, cont)
+    case P(e, N) =>
+      base_eval(e, env, cont)
     case P(e, es) => base_eval(e, env, F { _ => eval_begin(es, env, cont) })
   }
 
@@ -144,7 +149,8 @@ object eval {
   def eval_application(exp: Value, env: Env, cont: Cont): Value = exp match {
     case P(fun, args) => base_eval(fun, env, F {
       case F(f) => evlist(args, env, F { vas => cont.f(f(vas)) })
-      case FSubr(f) => f(InterpreterEnv(exp, env, cont))
+      case FSubr(f) =>
+        f(InterpreterEnv(exp, env, cont))
       case FExpr(f) => cont.f(f(args))
     })
   }
@@ -156,7 +162,6 @@ object eval {
 
   def extend(env: Env, params: Value, args: Value): Env = {
     val frame = valueOf((list(params) zip list(args)).map { t => P(t._1, t._2) })
-    // println("NEW FRAME: " + frame)
     P(frame, env)
   }
 
@@ -199,8 +204,15 @@ object eval {
     P(S("quote"), FSubr({ case InterpreterEnv(value, env, cont) => eval_quote(value, env, cont) })),
     P(S("if"), FSubr({ case InterpreterEnv(value, env, cont) => eval_if(value, env, cont) })),
 
-    P(S("car"), F({ case P(a, _) => a })),
-    P(S("cdr"), F({ case P(_, b) => b })),
+    P(S("car"), F({ case args@P(P(a, _), N) =>
+      println("Car-ing" + args)
+      a
+    })),
+    P(S("cdr"), F({ case args@P(P(_, b), N) =>
+      println("Cdr-ing" + args)
+      println("cdr result = " + b)
+      b
+    })),
     P(S("list"), F({ case l => l })),
     P(S("cons"), F({ case P(a, P(b, N)) => P(a, b) })),
 
@@ -208,12 +220,12 @@ object eval {
     P(S("lambda"), FSubr({ case InterpreterEnv(value, env, cont) => eval_lambda(value, env, cont) })),
     P(S("begin"), FSubr({ case InterpreterEnv(value, env, cont) => eval_begin(value, env, cont) })),
     P(S("define"), FSubr({ case InterpreterEnv(value, env, cont) => eval_define(value, env, cont) })),
-    P(S("fsubr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fsubr(v, e, c) })),
+
     P(S("eval"), FSubr({ case InterpreterEnv(v, e, c) => eval_eval(v, e, c) })),
 
-    P(S("fexpr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fexpr(v, e, c) }))
+    P(S("fexpr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fexpr(v, e, c) })),
 
-
+    P(S("fsubr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fsubr(v, e, c) }))
   )), N)
 }
 
@@ -356,19 +368,27 @@ class lisp_Tests extends TestSuite {
     assertResult("((test 2 4) (test 1 2))")(show(ev("history")))
   }
 
-  test("fsubr") {
+  test("fsubr1") {
     ev("(define my-exp (fsubr (exp env cont) exp))")
     assertResult("(my-exp x)")(show(ev("(my-exp x)")))
 
     println("Passed case 1")
 
+  }
+  test("fsubr2") {
+
     ev("(define jump (fsubr (exp env cont) (eval (car (cdr exp)))))")
+
+    /*ev("(define jump (fsubr (exp env cont) (eval exp)))") */
 
     println("Eval-ed 2.1")
 
     assertResult(I(2))(ev("(- 1 (jump 2))"))
 
     println("Passed case 2")
+  }
+
+  test("fsubr3") {
 
     ev("(define fall (fsubr (exp env cont) 1))")
     assertResult(I(1))(ev("(* 2 (fall))"))
