@@ -77,17 +77,11 @@ object eval {
   }
 
   def eval_eval(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(body, N)) =>
-      println("Calling Eval on: " + body)
-      base_eval(body, env, F({ v => base_eval(v, env, cont) }))
+    case P(_, P(body, N)) => base_eval(body, env, F({ v => base_eval(v, env, cont) }))
   }
 
   def eval_var(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case S(x) => {
-      val e = get(env, x)
-      println(s"Lookup of $x gives $e")
-      cont.f(e)
-    }
+    case S(x) => cont.f(get(env, x))
   }
 
   def eval_quote(exp: Value, env: Env, cont: Cont): Value = exp match {
@@ -114,12 +108,10 @@ object eval {
   }
 
   def eval_fsubr(exp: Value, env: Env, cont: Cont): Value = exp match {
-    case P(_, P(params, body)) => cont.f(FSubr({ case args@InterpreterEnv(e, _, _) =>
-      println("Body = " + body)
-      println("expr passed = " + e)
-
-      eval_begin(body, extend(env, params, args), F { v => v })
-    }))
+    case P(_, P(params, body)) =>
+      cont.f(FSubr({ case args@InterpreterEnv(e, _, _) =>
+        eval_begin(body, extend(env, params, args), F { v => v })
+      }))
   }
 
   def eval_fexpr(exp: Value, env: Env, cont: Cont) = exp match {
@@ -133,6 +125,28 @@ object eval {
     case P(e, N) =>
       base_eval(e, env, cont)
     case P(e, es) => base_eval(e, env, F { _ => eval_begin(es, env, cont) })
+  }
+
+  private def getAssignments(value: ast.Value, env: Env, cont: Cont): Value =
+    value match {
+      case N => cont.f(P(N, N))
+      case P(P(x: S, P(v, N)), rest) =>
+
+        getAssignments(rest, env, F
+          {
+            case P(vars, vals) =>
+              base_eval(v, env, F { r => cont.f(P(P(x, vars), P(r, vals))) })
+          }
+        )
+    }
+
+  def eval_let(exp: ast.Value, env: ast.Env, cont: ast.Cont): Value = exp match {
+    case P(_, P(assignments, P(body, N))) =>
+     getAssignments(assignments, env, F {case P(vars, values) =>
+       base_eval(body, extend(env, vars, values), cont)
+     })
+
+
   }
 
   def eval_define(exp: Value, env: Env, cont: Cont): Value = exp match {
@@ -199,20 +213,14 @@ object eval {
     P(S("eq?"), F({ case P(a, P(b, N)) => B(a == b) })),
     P(S("<"), F({ case P(I(a), P(I(b), N)) => B(a < b) })),
     P(S("*"), F({ args => I(toIntList(args).product) })),
+    P(S("+"), F({ args => println("Plus ARgs = " + toIntList(args)); I(toIntList(args).sum) })),
     P(S("-"), F({ case P(I(a), P(I(b), N)) => I(a - b) })),
 
     P(S("quote"), FSubr({ case InterpreterEnv(value, env, cont) => eval_quote(value, env, cont) })),
     P(S("if"), FSubr({ case InterpreterEnv(value, env, cont) => eval_if(value, env, cont) })),
 
-    P(S("car"), F({ case args@P(P(a, _), N) =>
-      println("Car-ing" + args)
-      a
-    })),
-    P(S("cdr"), F({ case args@P(P(_, b), N) =>
-      println("Cdr-ing" + args)
-      println("cdr result = " + b)
-      b
-    })),
+    P(S("car"), F({ case P(P(a, _), N) => a })),
+    P(S("cdr"), F({ case P(P(_, b), N) => b })),
     P(S("list"), F({ case l => l })),
     P(S("cons"), F({ case P(a, P(b, N)) => P(a, b) })),
 
@@ -225,7 +233,9 @@ object eval {
 
     P(S("fexpr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fexpr(v, e, c) })),
 
-    P(S("fsubr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fsubr(v, e, c) }))
+    P(S("fsubr"), FSubr({ case InterpreterEnv(v, e, c) => eval_fsubr(v, e, c) })),
+
+    P(S("let"), FSubr({ case InterpreterEnv(v, e, c) => eval_let(v, e, c) }))
   )), N)
 }
 
@@ -371,21 +381,12 @@ class lisp_Tests extends TestSuite {
   test("fsubr1") {
     ev("(define my-exp (fsubr (exp env cont) exp))")
     assertResult("(my-exp x)")(show(ev("(my-exp x)")))
-
-    println("Passed case 1")
-
   }
   test("fsubr2") {
 
     ev("(define jump (fsubr (exp env cont) (eval (car (cdr exp)))))")
 
-    /*ev("(define jump (fsubr (exp env cont) (eval exp)))") */
-
-    println("Eval-ed 2.1")
-
     assertResult(I(2))(ev("(- 1 (jump 2))"))
-
-    println("Passed case 2")
   }
 
   test("fsubr3") {
@@ -418,6 +419,18 @@ class lisp_Tests extends TestSuite {
     ev("(set! test (* test 2))")
     assertResult(I(4))(ev("test"))
     assertResult("((test 2 4) (test 1 2))")(show(ev("history")))
+  }
+
+  test("let1") {
+    assertResult(I(1))(ev("(let ((x 1)) x)"))
+  }
+
+  test("let2") {
+    assertResult(I(2))(ev("((let ((f (lambda (x) x))) f) 2)"))
+  }
+
+  test("let3") {
+    assertResult(I(3))(ev("(let ((x 1)(y 2)) (+ x y))"))
   }
 }
 
