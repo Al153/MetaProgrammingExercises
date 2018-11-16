@@ -1,18 +1,22 @@
 #include <limits.h>
 /*@
-requires ((((0<x0) &&
+requires (((((0<x0) &&
 (x0<100)) &&
 ((0<x1) &&
 (x1<100))) &&
-\valid(x2+(0..(x0*x1)-1)));
+\valid(x2+(0..(x0*x1)-1))) &&
+(\forall int x67; (0<=x67<(x0*x1)) ==> ((x2[x67]>=0) &&
+(x2[x67]<256))));
+ensures (\forall int x88; (0<=x88<(x0*x1)) ==> ((x2[x88]>=0) &&
+(x2[x88]<256)));
 */
 void p(int  x0, int  x1, int  * x2) {
-  int x24 = 1 > 3;
-  int x25;
-  if (x24) {
-    x25 = 4;
+  int x44 = 1 > 3;
+  int x45;
+  if (x44) {
+    x45 = 4;
   } else {
-    x25 = 5;
+    x45 = 5;
   }
   /*@
   loop invariant 0<=x5<=x0;
@@ -24,13 +28,15 @@ void p(int  x0, int  x1, int  * x2) {
     /*@
     loop invariant 0<=x13<=x1;
     loop invariant (x11==(x5*x1));
+    loop invariant (\forall int x19; (0<=x19<(x0*x1)) ==> ((x2[x19]>=0) &&
+    (x2[x19]<256)));
     loop assigns x13, x2[(0..(x0*x1)-1)];
     loop variant x1-x13;
     */
     for(int x13=0; x13 < x1; x13++) {
-      int x22 = x11 + x13;
-      int x23 = x2[x22];
-      x2[x22] = x25;
+      int x42 = x11 + x13;
+      int x43 = x2[x42];
+      x2[x42] = x45;
     }
   }
 }

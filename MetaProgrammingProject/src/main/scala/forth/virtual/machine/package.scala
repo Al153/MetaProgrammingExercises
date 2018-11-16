@@ -71,14 +71,48 @@ package object machine {
       case _ => createRef(RecSeq(Op(b), arg, N))
     }
 
+    trait NoChange
 
-    type Continuation[A] = Ref[R] => Comp[Ref[R]] // (Leaves an A at the top of the stack)
-    def if_[A](c: Continuation[Boolean], t: Continuation[A], f: Continuation[A]): Continuation[A] =
+    type Continuation[A <: FVMValue[R] with NoChange] = Ref[R] => Comp[Ref[R]] // (Leaves an A at the top of the stack)
+    def if_[A](c: Continuation[B], t: Continuation[A], f: Continuation[A]): Continuation[A] =
       (next: Ref[R]) => for {
         trueClause <- t(next)
         ifClause <- createNode(FBranch, trueClause, _ => f(next).map(Some(_)))
         res <- c(ifClause)
       } yield res
+
+
+    def while_(cond: Continuation[B], body: Continuation[NoChange]): Continuation[Unit] =
+      (next: Ref[R]) => for {
+        branchNode <- createNode(FBranch, N, _ => witness.unit(Some(next)))
+        entryPoint <- cond(branchNode)
+        bodyBranch <- body(entryPoint)
+        _ <- setField(branchNode.r, 1, bodyBranch)
+      } yield entryPoint
+
+    def createPeekCStack: Continuation[Any] =
+      (next: Ref[R]) => createNode(FPeekCont, _ => witness.unit(Some(next)))
+
+    def createPushCStack: Continuation[Any] =
+      (next: Ref[R]) => createNode(FPushCont, _ => witness.unit(Some(next)))
+
+    def createGetDict: Continuation[R] =
+      (next: Ref[R]) => createNode(FGetDict, _ => witness.unit(Some(next)))
+
+    def createPush[A <: FVMValue[R]](v: A): Continuation[A] =
+      (next: Ref[R]) => createNode(FPush, v, _ => witness.unit(Some(next)))
+
+
+
+    def searchFrame: Comp[FVMValue[R]] // (FramePtr -- Ref | N), c: (Token -- Token)
+    /**
+      * create a runtime program that looks up the word token at the top of the E_stack in the dict
+      *
+      * @return
+      */
+    def runtimeLookup: Comp[FVMValue[R]] = {
+      createPushCStack(createGetDict(while_(???, ???)(createPush(N))))
+    }
 
 
   }

@@ -3,7 +3,6 @@ package imgdsl
 import imgdsl.grayimg.{Img, _}
 import lms.verify._
 
-
 // Ported by Oleg Kiselyov's "A DSL for image manipulation"
 // http://okmij.org/ftp/meta-programming/tutorial/
 
@@ -185,10 +184,14 @@ trait ImgComp extends ImgDsl with Dsl {
 
   override def it: E = identity
 
-  override def infix_+%(a: E, b: E): E = v =>
+  override def infix_+%(a: E, b: E): E = v => {
     (a(v), b(v)) match {
-      case (I(a1), I(b1)) => I(a1 + b1)
+      case (I(a1), I(b1)) =>
+
+        I(a1 + b1)
     }
+  }
+
 
   override def infix_-%(a: E, b: E): E = v =>
     (a(v), b(v)) match {
@@ -220,26 +223,35 @@ trait ImgComp extends ImgDsl with Dsl {
 
   override def if_(cond: E, thenp: E, elsep: E): E =
     v => (cond(v), thenp(v), elsep(v)) match {
-      case (B(b), B(t), B(f)) => B(if(b) t else f)
-      case (B(b), I(t), I(f)) => I(if(b) t else f)
+      case (B(b), B(t), B(f)) => B(if (b) t else f)
+      case (B(b), I(t), I(f)) => I(if (b) t else f)
     }
-  
 
 
-  def iterate(w: Rep[Int], h: Rep[Int], ps: Rep[Array[Int]])(f: E): Rep[Unit] =
+  def iterate(w: Rep[Int], h: Rep[Int], ps: Rep[Array[Int]])(f: E): Rep[Unit] = {
+    requires((0 until w * h).forall{ x => (ps(x) >= 0) && (ps(x) < 256) })
     for (i <- 0 until w) {
       loop_assigns(list_new(i :: (ps within (0 until w * h)) :: Nil))
       val r = i * h
       for (j <- 0 until h) {
         loop_invariant(r == i * h)
         //??? more loop invariants
+
+        loop_invariant((0 until (r + j)).forall{ x => (ps(x) >= 0) && (ps(x) < 256) })
+
+
         loop_assigns(list_new(j :: (ps within (0 until w * h)) :: Nil))
         val x = r + j
         ps(x) = f(I(ps(x))) match {
           case I(v) => v
         }
+
+
       }
     }
+
+    ensures{ (res: Rep[Unit]) => (0 until w * h).forall{ x => (ps(x) >= 0) && (ps(x) < 256) }}
+  }
 
   def N: Int = 100 // ghost maximum dimension to avoid overflows
   def run(f: E) = {

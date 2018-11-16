@@ -48,3 +48,9 @@ case object FDrop extends ByteCode
 case object FDup extends ByteCode
 
 case object FSwap extends ByteCode
+
+case object FPushCont extends ByteCode
+
+case object FPopCont extends ByteCode
+
+case object FPeekCont extends ByteCode

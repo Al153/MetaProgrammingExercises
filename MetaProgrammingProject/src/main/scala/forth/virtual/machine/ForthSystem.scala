@@ -17,6 +17,8 @@ trait ForthSystem {
 
   def popCont: Comp[FVMValue[R]]
 
+  def peekCont: Comp[FVMValue[R]]
+
   def doReturn: Comp[Unit]
 
   def setMode(i: Int): Comp[Unit]
@@ -108,6 +110,13 @@ trait ForthCore {
       case Instr(FDup, rest) => binOp { case (a, b) => Seq(b, a, a) } andThen continue(rest)
 
       case Instr(FSwap, rest) => binOp { case (a, b) => Seq(a, b) } andThen continue(rest)
+
+
+      case Instr(FPushCont, rest) => popValue flatMap pushCont andThen continue(rest)
+
+      case Instr(FPopCont, rest) => popCont flatMap pushValue andThen continue(rest)
+
+      case Instr(FPeekCont, rest) => peekCont flatMap pushValue andThen continue(rest)
     }
 
   // can be overidden
