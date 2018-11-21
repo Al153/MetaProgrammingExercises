@@ -488,7 +488,6 @@ and 'a effect  =
   | Print : int normalized -> unit effect
   | Add: int normalized * int normalized -> int effect
   | App: ('a -> 'b) normalized * 'a normalized -> 'b effect
-  | Fun: ('a -> 'b) value -> ('a -> 'b) effect
 
 let rec residn : type a. a normalized -> a code = function
     Return v -> residnv v
@@ -503,8 +502,6 @@ and residne : type a. a effect -> a code = function
     | Print i -> .< print_int .~(residn i) >.
     | Add (a, b) -> .< .~(residn a) + .~(residn b)>.
     | App (f, x) -> .< (.~ (residn f) .~(residn x)) >.
-    | Fun f -> .< .~(residnv f)>.
-
 
 module Normal : EXP with type 'a t = 'a normalized =
 struct
@@ -523,9 +520,11 @@ struct
   let int x = Return (Int x)
   let bool x = Return (Bool x)
   let app f = fun xn ->
-    f >>= (fun fv -> Let(App(Return fv, xn), (fun res -> Return res)))
+    match f with 
+    | (Return (Lam fl)) -> xn >>= fl
+    | _ -> f >>= (fun fv -> Let(App(Return fv, xn), (fun res -> Return res)))
   let lam : ('a t -> 'b t) -> ('a -> 'b) t = fun f ->
-    Let (Fun (Lam(fun v -> f(Return v))),  (fun res -> Return res))
+    Return (Lam(fun v -> f(Return v)))
   let if_ c t e =
     c >>= (fun b -> If(b, t, e))
   let add x y =
