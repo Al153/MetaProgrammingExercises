@@ -161,7 +161,7 @@ struct
   let lam f =  Fun(f, [])
   let app (Fun(f, es)) = fun x -> 
     Fun(f, es) >> f(x)  
-  let if_ (Bool(b, es)) t e  = Bool(b, es) >> (if (b) then t else e) (* (b) TODO *)
+  let if_ (Bool(b, es)) t e  = Bool(b, es) >> (if (b) then t else e)
   let print (Int (i, es)) = Unit ((), i :: es)
 end
 
@@ -218,8 +218,10 @@ struct
     match b.sta with
       Bool true -> t
     | Bool false -> e
-    | Unknown -> let dyn = .< if .~(b.dyn) then .~(resid1 t) else .~(resid1 e) >. in
-                 { sta = Unknown; dyn = dyn }
+    | Unknown -> 
+        let dyn = .< if .~(b.dyn) then .~(resid1 t) else .~(resid1 e) >. 
+        in
+         { sta = Unknown; dyn = dyn }
 end
 				 
 
@@ -231,7 +233,7 @@ type _ static =
   | Int : int -> int static
   | Bool : bool -> bool static
   (* Monad?? *)
-  | Fun  : ('a sd -> 'b static) -> ('a -> 'b) static (* (c) TODO: give Fun an appropriate type. *)
+  | Fun  : ('a sd -> 'b static) -> ('a -> 'b) static
   | Unknown : _ static
 and 'a sd = {
     sta: 'a static;
@@ -269,12 +271,6 @@ struct
       sta = Fun(fun a -> (f a).sta);
       dyn = .< fun at -> .~(resid(f({sta = Unknown; dyn = .<at>.})))>.
     } 
-
-  (*
-  {
-    sta = Fun (fun x -> (f {sta = Unknown; dyn = .< x >.}).sta);
-   dyn = .< fun x -> .~(resid(f {sta = Unknown; dyn = .< x >.}))>. }
-  *)
   let app f   = fun x -> 
     let static = match f.sta with
       | Fun f1 -> f1 x
@@ -286,12 +282,15 @@ struct
     | Int x -> 
       {sta = Unknown; dyn = .< (print_int x) >.}
     | _ -> 
-     { sta = Unknown; dyn = .< (print_int .~(resid e)) >. }(* (c) TODO *)
+     { sta = Unknown; dyn = .< (print_int .~(resid e)) >. }
   let if_ b t e =
     match b.sta with
       Bool true -> t
     | Bool false -> e
-    | Unknown ->{ sta = Unknown; dyn = .< if .~(b.dyn) then .~(resid(t)) else .~(resid(e)) >.} (* (c) TODO *)
+    | Unknown -> {
+       sta = Unknown;
+       dyn = .< if .~(b.dyn) then .~(resid(t)) else .~(resid(e)) >.
+      }
 end
 (** Partially-evaluate the example terms.  *)
 (*
@@ -306,7 +305,11 @@ let t3_pe =  resid PE_examples.t3 ;;*)
     equality then 'equalp' returns 'Unknown'. *)
 type equal = Yes | No | Unknown
 let rec equalp : type a. a static -> a static -> equal =
-  fun l r -> assert false (* (d) TODO *)
+  fun l r ->
+    match (l, r) with
+    | (Int il, Int ir) -> if il = ir then Yes else No
+    | (Bool bl, Bool br) -> if bl = br then Yes else No
+    | _ -> Unknown (* Not going to get into function equality. *)
 
 module PE2 : EXP with type 'a t = 'a sd =
 struct
@@ -322,14 +325,35 @@ struct
     | Int l, Int r -> let s = l + r in
                       { sta = Int s; dyn = .< s >. }
     | _ -> { sta = Unknown; dyn = .< .~(x.dyn) + .~(y.dyn) >. }
-  let lam f   = assert false (* (d) TODO *)
-  let app f   = assert false (* (d) TODO *)
-  let print e = assert false (* (d) TODO *)
+  let lam (f: 'a t -> 'b t): ('a -> 'b) t  =
+    {
+      sta = Fun(fun a -> (f a).sta);
+      dyn = .< fun at -> .~(resid(f({sta = Unknown; dyn = .<at>.})))>.
+    } 
+  let app f   = fun x -> 
+    let static = match f.sta with
+      | Fun f1 -> f1 x
+      | Unknown -> Unknown
+    in
+      {sta= static; dyn = .< .~(f.dyn) .~(x.dyn)>.}
+  let print (e: int t) : unit t = match e.sta  with 
+    (* I don't think we want to eagerly evaluate print at compile time, but can eval the e*)
+    | Int x -> 
+      {sta = Unknown; dyn = .< (print_int x) >.}
+    | _ -> 
+     { sta = Unknown; dyn = .< (print_int .~(resid e)) >. }
   let if_ b t e =
     match b.sta with
       Bool true -> t
     | Bool false -> e
-    | Unknown -> assert false (* (d) TODO *)
+    | Unknown -> match (equalp t.sta e.sta) with
+      (* Issue - this optimises out prints *)
+      | Yes -> t
+      | _ -> { 
+        sta = Unknown; 
+        dyn = .< if .~(b.dyn) then .~(resid(t)) else .~(resid(e)) >.
+      }
+
 end
 (* module PE2_examples = Example(PE2)
  * let t0_pe2 =  resid PE2_examples.t0
@@ -349,10 +373,8 @@ end
 
 (* I've renamed k to be runCont in this record type, to make it clearer when used with the continuation fns themselves*)
 type 'a cps = {runCont: 'b. ('a -> 'b) -> 'b}
-
+(* To Run: *)
 (* CPS.(lam(fun f -> app f ( app f ( int 3) ) ) ).runCont(fun x -> x ) succ ;; *)
-
-
 
 module CPS : EXP with type 'a t = 'a cps =
 struct
