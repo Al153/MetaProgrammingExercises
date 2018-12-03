@@ -1,0 +1,17 @@
+Proposal - Metaprogramming project
+
+My Part II Project (https://github.com/Al153/PartIIProject) was a Graph Database system written in Scala in a purely functional way.
+During the process, I wrote several backends for the project, including an in-memory interpreter, a backend that compiled the queries to PostgreSQL,
+and a family of interpreters that used LMDB to outperform Postgres.
+
+This project contained a query DSL written in Scala.
+Although this DSL enforced typing on generated queries (no incorrect queries could be generated if the program compiled),
+it was not tagless. This introduced issues for the extensibility of the project. For example, each of my backends was required to 
+implement the same trait using subclass polymorphism, restricting future backend implementations. Further more, backends had to use 
+the same relatively primitive "erasure" and "un-erasure" process to convert user-side types to and from database storeable types.
+Finally, each backend had to return results as an instance of the same `Operation` monad type, restricting the backends to only be able directly interpret 
+the DSL AST.
+
+This L305 Project would be to create a tagless final version of this DSL with polymorphism over the DSL interpreter, type conversion, and return types of implementations. End goals would be to set up the original DSL/Interpreter as an implementation of the new DSL, as well as explore other techniques, such as
+bytecode compilation or "free" optimisations.
+
