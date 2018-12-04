@@ -1,4 +1,4 @@
-package query.dsl
+package query.dsl.components
 
 trait PairQueries[Pair[_, _], Single[_], Valid[_]] {
   def reverse[A: Valid, B: Valid](p: Pair[A, B]): Pair[B, A]
@@ -23,4 +23,3 @@ trait PairQueries[Pair[_, _], Single[_], Valid[_]] {
 
   def fixedPoint[A: Valid](p: Pair[A, A]): Pair[A, A]
 }
-

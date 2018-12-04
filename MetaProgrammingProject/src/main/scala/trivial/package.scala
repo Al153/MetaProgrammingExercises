@@ -1,54 +1,17 @@
-import query.dsl.{Backend, Monad, PairQueries}
+import query.dsl.DSL
+import query.dsl.components.{Backend, Monad, PairQueries, SingleQueries}
 
+import scala.collection.immutable.Queue
 import scala.collection.mutable
 
+/**
+  * Very naive.
+  * A slightly ugly, imperative, non-monadic set based relation implementation
+  * Uses a few optimisations, but only to simplify writing it
+  */
 package object trivial {
   type Id[A] = A
   type Relation[A, B] = Set[(A, B)]
-
-  /**
-    * sealed trait Relation[A, B] {
-    * def fold[C](c: => C, f: Set[(A,B)] => C): C
-    * def reverse: Relation[B, A]
-    * def and(relation: Relation[A, B]): Relation[A, B]
-    * def or(relation: Relation[A, B]): Relation[A, B]
-    * def join[C](relation: Relation[B, C]): Relation[A, C]
-    * def andRight(s: Set[B]): Relation[A, B]
-    * def andLeft(s: Set[A]): Relation[A, B]
-    * }
-    * case class S[A, B](s: Set[(A, B)]) extends Relation[A, B] {
-    * override def fold[C](c: => C, f: Set[(A, B)] => C): C = f(s)
-    * *
-    * override def reverse: Relation[B, A] = S(s.map{case (a, b) => (b, a)})
-    * *
-    * override def and(relation: Relation[A, B]): Relation[A, B] = ???
-    * *
-    * override def or(relation: Relation[A, B]): Relation[A, B] = ???
-    * *
-    * override def join[C](relation: Relation[B, C]): Relation[A, C] = ???
-    * *
-    * override def andRight(s: Set[B]): Relation[A, B] = ???
-    * *
-    * override def andLeft(s: Set[A]): Relation[A, B] = ???
-    * }
-    * case class I[A]() extends Relation[A, A] {
-    * override def fold[C](c: => C, f: Set[(A, A)] => C): C = c
-    * *
-    * override def reverse: Relation[A, A] = I()
-    * *
-    * override def and(relation: Relation[A, A]): Relation[A, A] = relation match {
-    * case I()
-    * }
-    * *
-    * override def or(relation: Relation[A, A]): Relation[A, A] = ???
-    * *
-    * override def join[C](relation: Relation[A, C]): Relation[A, C] = ???
-    * *
-    * override def andRight(s: Set[A]): Relation[A, A] = ???
-    * *
-    * override def andLeft(s: Set[A]): Relation[A, A] = ???
-    * }
-    */
 
   trait IdMonad extends Monad[Id] {
     override def bind[A, B](ma: Id[A], f: A => Id[B]): Id[B] = f(ma)
@@ -60,11 +23,110 @@ package object trivial {
   case class Universe[A](u: Set[A])
 
   object TrivialBackend
-    extends Backend[Id, Set, Relation, Set, Set, Vector, Relation, Universe]
+    extends DSL[Id, Set, Relation, Set, Set, Vector, Relation, Universe]
       with IdMonad {
 
-    class TrivialPairs extends PairQueries[Relation, Set, Universe] {
-      override def reverse[A: Universe, B: Universe](p: Relation[A, B]): Relation[B, A] = p map {case (a, b) => b -> a}
+
+
+    override def readPair[A: Universe, B: Universe](p: Relation[A, B]): Id[Set[(A, B)]] = {
+      val AU = implicitly[Universe[A]].u
+      val BU = implicitly[Universe[B]].u
+      // filter for A and B universe so that identity sets work.
+      p filter { case (a, b) => AU.contains(a) && BU.contains(b) }
+    }
+
+    override def readSingle[A: Universe](s: Set[A]): Id[Set[A]] = s
+
+    override def shortestPath[A: Universe](start: A, end: A, p: Relation[A, A]): Id[Option[Vector[A]]] = {
+
+      // create a mutable index for traversal.
+      val index: mutable.HashMap[A, Set[A]] = new mutable.HashMap[A, Set[A]]()
+
+      def searchStep(a: A): Set[A] = index.getOrElse(a, Set())
+
+      p.foreach {
+        case (from, to) =>
+          if (index.contains(from))
+            index(from) = index(from) + to
+          else
+            index(from) = Set(to)
+      }
+
+      var fringe: Queue[List[A]] = Queue(List(start))
+      var alreadyExplored: Set[A] = Set()
+      var result: Option[List[A]] = None
+      var done = false
+
+      while (fringe.nonEmpty && !done) {
+
+        val stepResult = doStep(searchStep, fringe, alreadyExplored)
+        val (newFringe, path, objects) = stepResult
+        if (objects.contains(end)) {
+          done = true
+          result = Some(end :: path)
+        } else {
+          fringe = newFringe
+          alreadyExplored = alreadyExplored | objects
+          result = None
+        }
+
+      }
+      result.map(_.reverse.toVector)
+    }
+
+    private def doStep[E, A](searchStep: A => Set[A], fringe: Queue[List[A]], alreadyExplored: Set[A]): (Queue[List[A]], List[A], Set[A]) =
+      if (fringe.nonEmpty) {
+        val top = fringe.head // pop the top off of the fringe
+        val next = searchStep(top.head)
+        val newObjects = next.diff(alreadyExplored)
+        val newFringe = fringe.tail ++ newObjects.diff(alreadyExplored).map(_ :: top)
+        (newFringe, top, newObjects)
+      } else {
+        (fringe, List(), alreadyExplored)
+      }
+
+
+    override def allShortestPaths[A: Universe](start: A, p: Relation[A, A]): Id[Set[Vector[A]]] = {
+      // create a mutable index for traversal.
+      val index: mutable.HashMap[A, Set[A]] = new mutable.HashMap[A, Set[A]]()
+
+      def searchStep(a: A): Set[A] = index.getOrElse(a, Set())
+
+      p.foreach {
+        case (from, to) =>
+          if (index.contains(from))
+            index(from) = index(from) + to
+          else
+            index(from) = Set(to)
+      }
+
+
+      var fringe: Queue[List[A]] = Queue(List(start))
+      var alreadyExplored: Set[A] = Set()
+      var resBuilder: mutable.Builder[List[A], Set[List[A]]] = Set.newBuilder[List[A]]
+
+
+      var generationCount = 0
+      var nodeArity: Long = 0
+      while (fringe.nonEmpty) {
+        generationCount += 1
+        val stepResult = doStep(searchStep, fringe, alreadyExplored)
+        val (newFringe, path, objects) = stepResult
+        nodeArity += objects.size
+        resBuilder ++= objects.map(_ :: path)
+        fringe = newFringe
+        alreadyExplored = alreadyExplored | objects
+      }
+
+
+      resBuilder.result().map(_.reverse.toVector)
+    }
+
+
+    override def insert[A: Universe, B: Universe](relations: Seq[Relation[A, B]]): Id[Unit] = () // constant value for now ...
+
+    override object pairQueries extends PairQueries[Relation, Set, Universe] {
+      override def reverse[A: Universe, B: Universe](p: Relation[A, B]): Relation[B, A] = p map { case (a, b) => b -> a }
 
       override def and[A: Universe, B: Universe](p: Relation[A, B], q: Relation[A, B]): Relation[A, B] = p intersect q
 
@@ -94,19 +156,20 @@ package object trivial {
       }
     }
 
-    override def readPair[A: Universe, B: Universe](p: Relation[A, B]): Id[Set[(A, B)]] = p
+    override object singleQueries extends SingleQueries[Relation, Set, Set, Universe] {
+      override def find[A: Universe](f: Set[A]): Set[A] = f & implicitly[Universe[A]].u
 
-    override def readSingle[A: Universe](s: Set[A]): Id[Set[A]] = s
+      override def and[A: Universe](s: Set[A], t: Set[A]): Set[A] = s & t
 
-    override def shortestPath[A: Universe](start: A, end: A, p: Relation[A, A]): Id[Vector[A]] = ???
+      override def from[A: Universe, B: Universe](s: Set[A], p: Relation[A, B]): Set[B] =
+        p collect {case (a, b) if s.contains(a) => b}
 
-    override def allShortestPaths[A: Universe](start: A, p: Relation[A, A]): Id[Set[Vector[A]]] = ???
-
-    override def insert[A: Universe, B: Universe](relations: Seq[Relation[A, B]]): Id[Unit] = () // constant value for now ...
+      override def or[A: Universe](s: Set[A], t: Set[A]): Set[A] = s | t
+    }
   }
 
 
-  def joinSet[A, B, C](leftRes: Relation[A, B], rightRes: Relation[B, C]): Relation[A, C] = {
+  private def joinSet[A, B, C](leftRes: Relation[A, B], rightRes: Relation[B, C]): Relation[A, C] = {
     // build an index of all values to join on right, since Proj_B(right) is a subset of Proj_B(Left)
     val collectedRight = mutable.Map[B, mutable.Set[C]]()
     for ((b, c) <- rightRes) {
@@ -119,7 +182,4 @@ package object trivial {
       right <- collectedRight.getOrElse(middle, Set[C]())
     } yield (left, right)
   }
-
-  case object MissingIdRelation extends Throwable
-
 }

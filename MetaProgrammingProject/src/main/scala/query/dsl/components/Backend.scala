@@ -1,4 +1,4 @@
-package query.dsl
+package query.dsl.components
 
 trait Backend[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
   self: Monad[M] =>
@@ -7,7 +7,7 @@ trait Backend[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Val
 
   def readSingle[A: Valid](s: Single[A]): M[Se[A]]
 
-  def shortestPath[A: Valid](start: A, end: A, p: Pair[A, A]): M[Path[A]]
+  def shortestPath[A: Valid](start: A, end: A, p: Pair[A, A]): M[Option[Path[A]]]
 
   def allShortestPaths[A: Valid](start: A, p: Pair[A, A]): M[Se[Path[A]]]
 

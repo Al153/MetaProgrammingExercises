@@ -1,4 +1,4 @@
-package query.dsl
+package query.dsl.components
 
 trait SingleSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
   self: WithSingleQueries[Pair, Single, Find, Valid] with WithPairQueries[Pair, Single, Valid] =>
