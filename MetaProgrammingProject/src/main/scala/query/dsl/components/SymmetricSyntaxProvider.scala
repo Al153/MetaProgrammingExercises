@@ -1,12 +1,19 @@
 package query.dsl.components
 
 trait SymmetricSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
-  self: WithPairQueries[Pair, Single, Valid] =>
+  self: WithSimplePairs[Pair, Single, Valid]
+    with WithSimpleRepetition[Pair, Valid]
+    with WithFixedPoint[Pair, Valid] =>
 
   implicit class SymmetricSyntax[A: Valid](p: Pair[A, A]) {
-    private val pq = pairQueries
+    private val rep = simpleRepetition
+    private val sp = simplePairs
+    private val fp = fixedPoint
 
-    import pq._
+
+    import fp._
+    import rep._
+    import sp._
 
     def *(n: Int): Pair[A, A] = doExactly(n)
 
@@ -14,8 +21,8 @@ trait SymmetricSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[
       case BetweenRange(lo, hi) => chain(doExactly(lo), createUpto(hi - lo))
       case UptoRange(n) => createUpto(n)
       case AtleastRange(n) =>
-        if (n == 0) fixedPoint(p)
-        else chain(doExactly(n), fixedPoint(p))
+        if (n == 0) fp.fixedPoint(p)
+        else chain(doExactly(n), fp.fixedPoint(p))
     }
 
     private def doExactly(n: Int): Pair[A, A] =
@@ -24,9 +31,9 @@ trait SymmetricSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[
     private def createUpto(n: Int): Pair[A, A] =
       if (n >= 0) upto(p, n) else upto(reverse(p), -n)
 
-    def ** : Pair[A, A] = fixedPoint(p)
+    def ** : Pair[A, A] = fp.fixedPoint(p)
 
-    def ++ : Pair[A, A] = chain(p, fixedPoint(p))
+    def ++ : Pair[A, A] = chain(p, fp.fixedPoint(p))
 
     def ? : Pair[A, A] = upto(p, 1)
   }

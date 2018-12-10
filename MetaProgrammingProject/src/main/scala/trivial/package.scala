@@ -1,5 +1,5 @@
 import query.dsl.DSL
-import query.dsl.components.{Backend, Monad, PairQueries, SingleQueries}
+import query.dsl.components._
 
 import scala.collection.immutable.Queue
 import scala.collection.mutable
@@ -125,7 +125,13 @@ package object trivial {
 
     override def insert[A: Universe, B: Universe](relations: Seq[Relation[A, B]]): Id[Unit] = () // constant value for now ...
 
-    override object pairQueries extends PairQueries[Relation, Set, Universe] {
+    override def simplePairs: SimplePairs[Relation, Set, Universe] = pairQueries
+
+    override def simpleRepetition: SimpleRepetition[Relation, Universe] = pairQueries
+
+    override def fixedPoint: FixedPoint[Relation, Universe] = pairQueries
+
+    object pairQueries extends PairQueries[Relation, Set, Universe] {
       override def reverse[A: Universe, B: Universe](p: Relation[A, B]): Relation[B, A] = p map { case (a, b) => b -> a }
 
       override def and[A: Universe, B: Universe](p: Relation[A, B], q: Relation[A, B]): Relation[A, B] = p intersect q

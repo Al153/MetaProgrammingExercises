@@ -1,10 +1,10 @@
 package query.dsl.components
 
 trait PairSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
-  self: WithPairQueries[Pair, Single, Valid] =>
+  self: WithSimplePairs[Pair, Single, Valid]  =>
 
   implicit class PairSyntax[A: Valid, B: Valid](p: Pair[A, B]) {
-    private val pq = pairQueries
+    private val pq = simplePairs
 
     import pq._
 
@@ -33,7 +33,7 @@ trait PairSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R
   }
 
   case class HalfPairSyntax[A: Valid, B: Valid] private(p: Pair[A, B], m: Single[B]) {
-    val pq = pairQueries
+    val pq = simplePairs
 
     import pq._
 
