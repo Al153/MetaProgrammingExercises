@@ -3,6 +3,7 @@ package trivial
 import TrivialBackend._
 import query.dsl.components.AtleastRange
 
+// checking branch
 object Examples {
 
   case class Car(brand: String, model: String)
