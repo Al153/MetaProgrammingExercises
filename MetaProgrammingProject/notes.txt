@@ -1,0 +1,15 @@
+Started with polymorphism-ifying the DSL code.
+
+Issues:
+    - Getting around the scala type system/inference without too many type annotations
+        - hence used "syntax generators" and existential types to provide the missing types
+    - Nearly simulates the syntax of the original DSL
+        (except andleft from a Single - occurs as accepts S and returns SS.P (escapes the scope))
+
+    - Need to add a Validating typeclass to maniuplate the types that the algebra is allowed to work over
+        This adds too many type parameters for syntax
+
+    - Solved with "Syntax Providers" - traits with all the relevant types in scope.
+
+Next up:
+    - create a trivially typed (P[A, B] = Set[(A, B)]; S[A] = Set[A])
