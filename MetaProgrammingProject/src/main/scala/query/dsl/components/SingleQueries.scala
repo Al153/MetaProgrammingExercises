@@ -1,4 +1,4 @@
-package query.dsl
+package query.dsl.components
 
 trait SingleQueries[Pair[_, _], Single[_], Find[_], Valid[_]] {
   def find[A: Valid](f: Find[A]): Single[A]

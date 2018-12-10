@@ -1,4 +1,4 @@
-package query.dsl
+package query.dsl.components
 
 trait Monad[M[_]] {
   def bind[A, B](ma: M[A], f: A => M[B]): M[B]

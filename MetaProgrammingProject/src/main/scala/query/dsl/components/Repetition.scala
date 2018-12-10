@@ -1,4 +1,4 @@
-package query.dsl
+package query.dsl.components
 
 sealed trait Repetition
 

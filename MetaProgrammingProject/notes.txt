@@ -11,5 +11,12 @@ Issues:
 
     - Solved with "Syntax Providers" - traits with all the relevant types in scope.
 
+
+
 Next up:
-    - create a trivially typed (P[A, B] = Set[(A, B)]; S[A] = Set[A])
+    - create a trivially typed (P[A, B] = Set[(A, B)]; S[A] = Set[A]) - done
+
+    - Free optimisations and implementations
+        - In order to simplify doing this (want to be able to do `... extends .. with FreeOperations`)
+    - Use my Part II project as a backend
+    - Stack machine implementation
