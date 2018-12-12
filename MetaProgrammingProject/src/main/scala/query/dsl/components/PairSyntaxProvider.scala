@@ -1,6 +1,6 @@
 package query.dsl.components
 
-trait PairSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
+trait PairSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
   self: WithSimplePairs[Pair, Single, Valid]  =>
 
   implicit class PairSyntax[A: Valid, B: Valid](p: Pair[A, B]) {

@@ -2,6 +2,8 @@ package query.dsl.free.implementation
 
 import query.dsl.components.{SimplePairs, SimpleRepetition}
 
+import scala.language.higherKinds
+
 class FreeRepetitions[
 Pair[_, _], Single[_], Valid[_]
 ](

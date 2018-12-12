@@ -2,12 +2,12 @@ package query.dsl.testing
 
 import query.dsl.components.{Backend, Monad}
 
-trait WithTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
-  def testTools: TestTools[M, Se, Pair, Single, Find, Path, R, Valid]
+trait WithTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
+  def testTools: TestTools[M, Se, Pair, Single, Find, Path, ToInsert, Valid]
 }
 
-trait TestSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
-  self: WithTestTools[M, Se, Pair, Single, Find, Path, R, Valid] =>
+trait TestSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
+  self: WithTestTools[M, Se, Pair, Single, Find, Path, ToInsert, Valid] =>
 
   implicit class PairTestSyntax[A: Valid, B: Valid](p: Pair[A, B]) {
     def =~=(q: Pair[A, B]): M[Boolean] = testTools.equalQuery(p, q)
@@ -27,7 +27,7 @@ trait TestSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R
 
 }
 
-trait TestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
+trait TestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
 
   def equalQuery[A: Valid, B: Valid](p: Pair[A, B], q: Pair[A, B]): M[Boolean]
 
@@ -38,13 +38,13 @@ trait TestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], V
   def equalResult[A: Valid, B: Valid](s: Se[(A, B)], t: Se[(A, B)]): M[Boolean]
 }
 
-trait AssertionTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
+trait AssertionTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
   def assert(condition: M[Boolean]): M[Unit]
 }
 
-trait RunTimeTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]]
-  extends TestTools[M, Se, Pair, Single, Find, Path, R, Valid] {
-  self: Backend[M, Se, Pair, Single, Find, Path, R, Valid] with Monad[M] =>
+trait RunTimeTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]]
+  extends TestTools[M, Se, Pair, Single, Find, Path, ToInsert, Valid] {
+  self: Backend[M, Se, Pair, Single, Find, Path, ToInsert, Valid] with Monad[M] =>
 
   import query.dsl.components.Monad._
   implicit val MonadM: Monad[M] = this

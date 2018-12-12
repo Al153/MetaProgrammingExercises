@@ -1,6 +1,6 @@
 package query.dsl.components
 
-trait SymmetricSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
+trait SymmetricSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
   self: WithSimplePairs[Pair, Single, Valid]
     with WithSimpleRepetition[Pair, Valid]
     with WithFixedPoint[Pair, Valid] =>

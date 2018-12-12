@@ -1,6 +1,6 @@
 package query.dsl.components
 
-trait Backend[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Valid[_]] {
+trait Backend[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
   self: Monad[M] =>
 
   def readPair[A: Valid, B: Valid](p: Pair[A, B]): M[Se[(A, B)]]
@@ -11,5 +11,5 @@ trait Backend[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], R[_, _], Val
 
   def allShortestPaths[A: Valid](start: A, p: Pair[A, A]): M[Se[Path[A]]]
 
-  def insert[A: Valid, B: Valid](relations: Seq[R[A, B]]): M[Unit]
+  def insert[A: Valid, B: Valid](relations: Seq[ToInsert[A, B]]): M[Unit]
 }
