@@ -1,0 +1,131 @@
+\documentclass{report}
+\usepackage{amssymb}
+
+\usepackage{amsmath}
+\usepackage[a4paper,includeheadfoot,margin=2.54cm]{geometry}
+\usepackage{breqn}
+
+\usepackage{array}   % for \newcolumntype macro
+
+\usepackage{verbatim}
+
+\usepackage{tabstackengine}
+\setstackEOL{\cr}
+\setstackgap{L}{\normalbaselineskip}
+
+
+
+
+\newcommand\N[0]{\mathbb{N}}
+\newcommand\Q[0]{\mathbb{Q}}
+
+\newcommand \2[0]{\textbf{2}}
+\newcommand \3[0]{\textbf{3}}
+
+
+\newcommand\biimpl[0]{\Leftrightarrow}
+\newcommand\impl[0]{\Rightarrow}
+\newcommand\impliedBy[0]{\Leftarrow}
+\newcommand \inverse[0]{^{-1}}
+\newcommand \compose[0]{ \circ}
+
+\newcommand \op[0]{^{op}}
+
+\newcommand \cat[0]{\textbf{C}}
+\newcommand \cset[0]{\textbf{Set}}
+
+\newcommand{\todo}[1]{\textbf{#1}}
+
+\begin{document}
+\title{A Modular, Extensible, and Polymorphic Graph Query DSL}
+
+\abstract
+This project is an extension of my Part II project \footnote{Dissertation: https://github.com/Al153/PartIIProject/blob/master/diss/diss.pdf,\\ Code: https://github.com/Al153/PartIIProject/tree/master/src}, the purpose of which was to build a purely functional graph database system. Although the DSL I produced for the project did provide Scala-compile-time type checking, it used an ADT to construct DSL terms and hence was not tagless-final. Further more, the DSL required implementations to return values of a specific monad type, which made it unsuitable for implementations other than immediate interpreters, such as an implementation that compiles queries for later execution. While my Part II project focused on the full stack and optimisations of particular backends, this L305 project focuses on the front end of a graph database system. It replicates the original DSL in a Modular tagless-final fashion, allowing implementations to choose which operations and syntax they support. Furthermore, it provides a high degree of polymorphism, both in the types used to represent queries, the return types of the database, and in the typeclasses used by an implementation to classify which types can be stored in the database. The project also contains code to plug in my part II backends to use the new DSL. Finally, the project also contains "free" implementations of modules and a suite of "free" optimisations.
+
+\chapter{The Original Project}
+\section{Introduction}
+My original part II project built the full stack of a graph database system. It provided a strongly typed DSL, a typeclass based framework for allowing an application developer's types to be used in queries, and several different backends targeting an in-memory datastore, PostgreSQL, and the LMDB memory-mapped datastore.
+\subsection{The Query Language}
+The original project uses an algebraic-datatype-based query language to specify queries that search for pairs of related objects and individual objects. As defined in my dissertation, the basic query constructors as follows.
+\begin{equation}
+    \label{PDefinition}
+    \begin{split}
+    P  &\rightarrow Rel(R) \mbox{ Find pairs related by the named relation R}\\
+    &\mid RevRel(R) \mbox{ Find pairs related by the named relation R in the reverse direction}\\
+    &\mid Chain(P, P) \mbox{   Find pairs related by the first subquery followed by the second}\\
+    &\mid And(P, P) \mbox{  Find pairs related by both of the sub-queries}\\
+    &\mid AndRight(P, S) \mbox{  Find pairs related by P where the right value is a result of S}\\
+    &\mid AndLeft(P, S) \mbox{  Find pairs related by P where the left value is a result of S}\\
+    &\mid Or(P, P) \mbox{  Find pairs related by either of the sub-queries}\\
+    &\mid Distinct(P) \mbox{  Find pairs related by P that are not symmetrical}\\
+    &\mid Id_A \mbox{ Identity relation}\\
+    &\mid Exactly(\mathit{n}, P) \mbox{  Find pairs related by n repetitions of P}\\
+    &\mid Upto(\mathit{n}, P) \mbox{  Find pairs related by up to n repetitions of P}\\
+    &\mid FixedPoint(P) \mbox{  Find the transitive closure of P}\\
+    \end{split}
+    \end{equation} 
+
+    \begin{equation}
+        \label{SDefinition}
+        \begin{split}
+        S & \rightarrow Find(F) \mbox{ Find values that match the findable F}\\
+        &\mid From(S, P) \mbox{ Find values that are reachable from results of S via P}\\
+        &\mid AndS(S, S) \mbox{ Find values that are results of both subqueries}\\
+        &\mid OrS(S, S) \mbox{ Find values that are results of either subquery}
+        \end{split}
+    \end{equation} 
+
+Full details, including the type system that applies over this query language can be found in \todo{Section of my dissertation}
+\section{Flaws in the Project}
+There are several flaws in the front end of this project, as necessatiated by the time constraints of a part II project, as well as my desire to look at the big picture of the system rather than focusing for too long on the front end.
+
+\begin{itemize}
+\item Fixed query ADT - prevents extension or partial implementation - can fix using tagless Finally
+\item Lack of polymorphism puts unnecessary constraints on backend implementation
+\item The fixed \texttt{SchemaObject} typeclass restricts what can be stored in a database by a backend. (Can only store simple tuple types). This can be fixed by allowing polymorphism over the typeclass used to verify types manipulated by the DSL.
+\item Operation monad / set return type prevents us from doing delayed computation. Implementations must directly interpret the queries. It would be better to allow partial evaluation/compilation of queries to give objects that contain optimised code to be run later.
+\item 
+\end{itemize}
+
+\chapter{The New DSL}
+ 
+\section{Tagless-Final}
+The new DSL is a modular tagless-final based system. There are several traits to implement, each containing a subset of the operations defined above. This allows for implementations to only partially implement the specification
+
+
+\section{Syntax}
+
+\section{Polymorphism}
+
+\section{Modularity}
+\section{Testing}
+
+\chapter{Backend implementations}
+\section{Trivial implementation}
+
+
+\chapter{Free Implementations}
+Some modules of DSL implementations can be defined naturally in terms of other modules. For example, as proven in the original project \todo{Which section?}, one can formulate the \texttt{exactly(n, P)} operation as a collection of \texttt{chain} operations. Furthermore, one can formulate \texttt{upto(n, P)} as \texttt{exactly(n, or(p, Id))}. Hence we can freely implement \texttt{exactly} and \texttt{upto} given an implementation of the \texttt{SimplePairs} module. Free implementations give us combinators for generating default methods of DSLs in a clean manner.
+
+In general, we can construct a free implementation of a trait using mix-ins as follows:
+
+\begin{verbatim}
+trait Free[TypeParams] extends ToBeImplemented[Types] {
+    self: Dependency1[Types1] with Dependency2[Types2] =>
+    // implement the methods of `ToBeImplemented` using 
+    // methods of `Dependency1` and `Dependency1`
+    def foo[A, B](a: A): B = ...
+}
+\end{verbatim}
+
+A free implementation can be used by mixing it in with implementations of the required dependencies.
+
+\begin{verbatim}
+object MyDSL extends Dependency1[Types1] with Dependency2[Types2] with Free[Types]
+\end{verbatim}
+
+One downside to overuse of free implementations is that they may not provide well optimised or performant queries for particular back ends. For example, it may be possible to carry out a backend-specific optimisation that is not applicable in the general case.
+\chapter{Free Optimisations}
+
+    
+\end{document}

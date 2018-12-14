@@ -12,3 +12,10 @@ ex1/target
 *.zip
 
 project
+
+MetaProgrammingProject/partiiproject
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
