@@ -14,18 +14,14 @@ package object trivial {
   type Id[A] = A
   type Relation[A, B] = Set[(A, B)]
 
-  trait IdMonad extends Monad[Id] {
-    override def bind[A, B](ma: Id[A], f: A => Id[B]): Id[B] = f(ma)
 
-    override def point[A](a: => A): Id[A] = a
-  }
 
 
   case class Universe[A](u: Set[A])
 
   object TrivialBackend
     extends DSL[Id, Set, Relation, Set, Set, Vector, Relation, Universe]
-      with IdMonad with FreeRepetitions[Relation, Set, Universe] {
+      with HasMonad[Id] with FreeRepetitions[Relation, Set, Universe] {
 
 
     override def readPair[A: Universe, B: Universe](p: Relation[A, B]): Id[Set[(A, B)]] = {
@@ -159,6 +155,13 @@ package object trivial {
 
     override def or[A: Universe](s: Set[A], t: Set[A]): Set[A] = s | t
 
+    override implicit def m: Monad[Id] = IdMonad
+
+    object IdMonad extends Monad[Id] {
+      override def bind[A, B](ma: Id[A], f: A => Id[B]): Id[B] = f(ma)
+
+      override def point[A](a: => A): Id[A] = a
+    }
   }
 
 

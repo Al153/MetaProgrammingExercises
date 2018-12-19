@@ -26,3 +26,7 @@ object Monad {
   }
 
 }
+
+trait HasMonad[M[_]] {
+  implicit def m: Monad[M]
+}
