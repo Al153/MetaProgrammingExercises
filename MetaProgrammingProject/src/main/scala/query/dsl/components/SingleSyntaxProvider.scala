@@ -1,18 +1,28 @@
 package query.dsl.components
 
-trait SingleSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
-  self: WithSingleQueries[Pair, Single, Find, Valid] with WithSimplePairs[Pair, Single, Valid] =>
+import scala.language.higherKinds
 
+
+/**
+  * Trait providing syntax for single queries
+  * @tparam Pair The pair query type
+  * @tparam Single The single query type
+  * @tparam Find Type of findables
+  * @tparam Valid the typeclass validating items that go in the database.
+  */
+trait SingleSyntaxProvider[ Pair[_, _], Single[_], Find[_], Valid[_]] {
+  self: SingleQueries[Pair, Single, Find, Valid] =>
+
+  /**
+    * The provided syntax class
+    */
   implicit class SingleSyntax[A: Valid](s: Single[A]) {
-    private val sq = singleQueries
-
-    import sq._
 
     def >>[B: Valid](p: Pair[A, B]): Single[B] = from[A, B](s, p)
 
-    def &(t: Single[A]): Single[A] = sq.and(s, t)
+    def &(t: Single[A]): Single[A] = and(s, t)
 
-    def |(t: Single[A]): Single[A] = sq.or(s, t)
+    def |(t: Single[A]): Single[A] = or(s, t)
   }
 
 }

@@ -1,5 +1,8 @@
 package query.dsl.components
 
+/**
+  * Objects for generating repetition queries
+  */
 sealed trait Repetition
 
 case class UptoRange private(n: Int) extends Repetition

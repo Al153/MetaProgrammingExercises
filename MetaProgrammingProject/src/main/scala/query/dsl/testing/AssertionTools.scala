@@ -2,32 +2,31 @@ package query.dsl.testing
 
 import query.dsl.components.{Backend, Monad}
 
-trait WithTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
-  def testTools: TestTools[M, Se, Pair, Single, Find, Path, ToInsert, Valid]
-}
+import scala.language.higherKinds
 
-trait TestSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
-  self: WithTestTools[M, Se, Pair, Single, Find, Path, ToInsert, Valid] =>
+
+trait TestSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Path[_], Valid[_]] {
+  self: TestTools[M, Se, Pair, Single, Path, Valid] =>
 
   implicit class PairTestSyntax[A: Valid, B: Valid](p: Pair[A, B]) {
-    def =~=(q: Pair[A, B]): M[Boolean] = testTools.equalQuery(p, q)
+    def =~=(q: Pair[A, B]): M[Boolean] = equalQuery(p, q)
   }
 
   implicit class SingleTestSyntax[A: Valid](s: Single[A]) {
-    def =~=(t: Single[A]): M[Boolean] = testTools.equalQuery(s, t)
+    def =~=(t: Single[A]): M[Boolean] = equalQuery(s, t)
   }
 
   implicit class ResultSetSingleSyntax[A: Valid, B: Valid](r: Se[(A, B)]) {
-    def ===(s: Se[(A, B)]): M[Boolean] = testTools.equalResult(r, s)
+    def ===(s: Se[(A, B)]): M[Boolean] = equalResult(r, s)
   }
 
   implicit class ResultSetPairSyntax[A: Valid](r: Se[A]) {
-    def ===(s: Se[A]): M[Boolean] = testTools.equalResult(r, s)
+    def ===(s: Se[A]): M[Boolean] = equalResult(r, s)
   }
 
 }
 
-trait TestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
+trait TestTools[M[_], Se[_], Pair[_, _], Single[_], Path[_], Valid[_]] {
 
   def equalQuery[A: Valid, B: Valid](p: Pair[A, B], q: Pair[A, B]): M[Boolean]
 
@@ -43,10 +42,11 @@ trait AssertionTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToIns
 }
 
 trait RunTimeTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]]
-  extends TestTools[M, Se, Pair, Single, Find, Path, ToInsert, Valid] {
+  extends TestTools[M, Se, Pair, Single, Path, Valid] {
   self: Backend[M, Se, Pair, Single, Find, Path, ToInsert, Valid] with Monad[M] =>
 
   import query.dsl.components.Monad._
+
   implicit val MonadM: Monad[M] = this
 
   override def equalQuery[A: Valid, B: Valid](p: Pair[A, B], q: Pair[A, B]): M[Boolean] =

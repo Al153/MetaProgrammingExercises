@@ -1,5 +1,9 @@
 package query.dsl.components
 
+/**
+  * Simple monad typeclass
+  * @tparam M - the monad
+  */
 trait Monad[M[_]] {
   def bind[A, B](ma: M[A], f: A => M[B]): M[B]
 
@@ -8,6 +12,9 @@ trait Monad[M[_]] {
 
 object Monad {
 
+  /**
+    * Some monadic syntax for integrating with scala's virtualised for-comprehensions
+    */
   implicit class MonadOps[M[_] : Monad, A](ma: M[A]) {
     private val MM = implicitly[Monad[M]]
 

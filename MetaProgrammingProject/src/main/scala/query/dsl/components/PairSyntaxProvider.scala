@@ -1,19 +1,26 @@
 package query.dsl.components
 
-trait PairSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
-  self: WithSimplePairs[Pair, Single, Valid]  =>
+import scala.language.higherKinds
 
+/**
+  * Trait providing pair syntax
+ *
+  * @tparam Pair - pair query type
+  * @tparam Single - single query type
+  * @tparam Valid
+  */
+trait PairSyntaxProvider[Pair[_, _], Single[_], Valid[_]] {
+  self: SimplePairs[Pair, Single, Valid]  =>
+
+  /**
+    * The syntax implicit class
+    */
   implicit class PairSyntax[A: Valid, B: Valid](p: Pair[A, B]) {
-    private val pq = simplePairs
 
-    import pq._
 
     def --><--[C: Valid](q: Pair[C, B]): Pair[A, C] = chain(p, reverse(q))
 
     def ->>-(s: Single[B]): Pair[A, B] = andRight(p, s)
-
-    // moves away from the original DSL
-    def ->>-:(s: Single[A]): Pair[A, B] = andLeft(p, s)
 
     def <---->[C: Valid](q: Pair[A, C]): Pair[B, C] = chain(reverse(p), q)
 
@@ -21,7 +28,7 @@ trait PairSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], T
 
     def rev: Pair[B, A] = reverse(p)
 
-    def distinct: Pair[A, B] = pq.distinct(p)
+    def distinct: Pair[A, B] = self.distinct(p)
 
     def &(q: Pair[A, B]): Pair[A, B] = and(p, q)
 
@@ -32,10 +39,12 @@ trait PairSyntaxProvider[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], T
     def <--(s: Single[A]): HalfPairSyntax[B, A] = HalfPairSyntax[B, A](reverse(p), s)
   }
 
+  /**
+    * Additional hidden object to allow more complex constructions, like
+    *
+    * p --> m --> q
+    */
   case class HalfPairSyntax[A: Valid, B: Valid] private(p: Pair[A, B], m: Single[B]) {
-    val pq = simplePairs
-
-    import pq._
 
     def -->[C: Valid](q: Pair[B, C]): Pair[A, C] = distinct(chain(andRight(p, m), q))
 

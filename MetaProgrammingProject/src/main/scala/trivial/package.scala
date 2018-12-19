@@ -1,5 +1,6 @@
 import query.dsl.DSL
 import query.dsl.components._
+import query.dsl.free.implementation.FreeRepetitions
 
 import scala.collection.immutable.Queue
 import scala.collection.mutable
@@ -24,8 +25,7 @@ package object trivial {
 
   object TrivialBackend
     extends DSL[Id, Set, Relation, Set, Set, Vector, Relation, Universe]
-      with IdMonad {
-
+      with IdMonad with FreeRepetitions[Relation, Set, Universe] {
 
 
     override def readPair[A: Universe, B: Universe](p: Relation[A, B]): Id[Set[(A, B)]] = {
@@ -125,53 +125,40 @@ package object trivial {
 
     override def insert[A: Universe, B: Universe](relations: Seq[Relation[A, B]]): Id[Unit] = () // constant value for now ...
 
-    override def simplePairs: SimplePairs[Relation, Set, Universe] = pairQueries
+    override def reverse[A: Universe, B: Universe](p: Relation[A, B]): Relation[B, A] = p map { case (a, b) => b -> a }
 
-    override def simpleRepetition: SimpleRepetition[Relation, Universe] = pairQueries
+    override def and[A: Universe, B: Universe](p: Relation[A, B], q: Relation[A, B]): Relation[A, B] = p intersect q
 
-    override def fixedPoint: FixedPoint[Relation, Universe] = pairQueries
+    override def or[A: Universe, B: Universe](p: Relation[A, B], q: Relation[A, B]): Relation[A, B] = p union q
 
-    object pairQueries extends PairQueries[Relation, Set, Universe] {
-      override def reverse[A: Universe, B: Universe](p: Relation[A, B]): Relation[B, A] = p map { case (a, b) => b -> a }
+    override def andRight[A: Universe, B: Universe](p: Relation[A, B], s: Set[B]): Relation[A, B] = p filter { case (_, b) => s contains b }
 
-      override def and[A: Universe, B: Universe](p: Relation[A, B], q: Relation[A, B]): Relation[A, B] = p intersect q
+    override def andLeft[A: Universe, B: Universe](p: Relation[A, B], s: Set[A]): Relation[A, B] = p filter { case (a, _) => s contains a }
 
-      override def or[A: Universe, B: Universe](p: Relation[A, B], q: Relation[A, B]): Relation[A, B] = p union q
+    override def chain[A: Universe, B: Universe, C: Universe](p: Relation[A, B], q: Relation[B, C]): Relation[A, C] = joinSet(p, q)
 
-      override def andRight[A: Universe, B: Universe](p: Relation[A, B], s: Set[B]): Relation[A, B] = p filter { case (_, b) => s contains b }
+    override def id[A: Universe]: Relation[A, A] = implicitly[Universe[A]].u.map(a => a -> a)
 
-      override def andLeft[A: Universe, B: Universe](p: Relation[A, B], s: Set[A]): Relation[A, B] = p filter { case (a, _) => s contains a }
+    override def distinct[A: Universe, B: Universe](p: Relation[A, B]): Relation[A, B] = p filter { case (a, b) => a != b }
 
-      override def chain[A: Universe, B: Universe, C: Universe](p: Relation[A, B], q: Relation[B, C]): Relation[A, C] = joinSet(p, q)
-
-      override def id[A: Universe]: Relation[A, A] = implicitly[Universe[A]].u.map(a => a -> a)
-
-      override def distinct[A: Universe, B: Universe](p: Relation[A, B]): Relation[A, B] = p filter { case (a, b) => a != b }
-
-      override def exactly[A: Universe](p: Relation[A, A], n: Int): Relation[A, A] = if (n <= 0) id else chain(p, exactly(p, n - 1))
-
-      override def upto[A: Universe](p: Relation[A, A], n: Int): Relation[A, A] = exactly(or(p, id), n)
-
-      override def fixedPoint[A: Universe](p: Relation[A, A]): Relation[A, A] = {
-        def aux(r: Relation[A, A]): Relation[A, A] = {
-          val r2 = chain(r, r)
-          if (r2 == r) r else aux(r2)
-        }
-
-        aux(upto(p, 2))
+    override def fixedPoint[A: Universe](p: Relation[A, A]): Relation[A, A] = {
+      def aux(r: Relation[A, A]): Relation[A, A] = {
+        val r2 = chain(r, r)
+        if (r2 == r) r else aux(r2)
       }
+
+      aux(upto(p, 2))
     }
 
-    override object singleQueries extends SingleQueries[Relation, Set, Set, Universe] {
-      override def find[A: Universe](f: Set[A]): Set[A] = f & implicitly[Universe[A]].u
+    override def find[A: Universe](f: Set[A]): Set[A] = f & implicitly[Universe[A]].u
 
-      override def and[A: Universe](s: Set[A], t: Set[A]): Set[A] = s & t
+    override def and[A: Universe](s: Set[A], t: Set[A]): Set[A] = s & t
 
-      override def from[A: Universe, B: Universe](s: Set[A], p: Relation[A, B]): Set[B] =
-        p collect {case (a, b) if s.contains(a) => b}
+    override def from[A: Universe, B: Universe](s: Set[A], p: Relation[A, B]): Set[B] =
+      p collect { case (a, b) if s.contains(a) => b }
 
-      override def or[A: Universe](s: Set[A], t: Set[A]): Set[A] = s | t
-    }
+    override def or[A: Universe](s: Set[A], t: Set[A]): Set[A] = s | t
+
   }
 
 
