@@ -5,12 +5,13 @@ import scala.language.higherKinds
 
 /**
   * Trait providing syntax for single queries
-  * @tparam Pair The pair query type
+  *
+  * @tparam Pair   The pair query type
   * @tparam Single The single query type
-  * @tparam Find Type of findables
-  * @tparam Valid the typeclass validating items that go in the database.
+  * @tparam Find   Type of findables
+  * @tparam Valid  the typeclass validating items that go in the database.
   */
-trait SingleSyntaxProvider[ Pair[_, _], Single[_], Find[_], Valid[_]] {
+trait SingleSyntaxProvider[Pair[_, _], Single[_], Find[_], Valid[_]] {
   self: SingleQueries[Pair, Single, Find, Valid] =>
 
   /**

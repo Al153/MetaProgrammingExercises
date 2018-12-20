@@ -1,6 +1,6 @@
 package query.dsl.testing
 
-import query.dsl.components.{Backend, HasMonad, Monad}
+import query.dsl.components.{Backend, HasMonad}
 
 import scala.language.higherKinds
 
@@ -37,8 +37,8 @@ trait TestTools[M[_], Se[_], Pair[_, _], Single[_], Path[_], Valid[_]] {
   def equalResult[A: Valid, B: Valid](s: Se[(A, B)], t: Se[(A, B)]): M[Boolean]
 }
 
-trait AssertionTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]] {
-  def assert(condition: M[Boolean]): M[Unit]
+trait AssertionTools[M[_]] {
+  def assertM(condition: M[Boolean], msg: String): M[Unit]
 }
 
 trait RunTimeTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]]
@@ -46,7 +46,6 @@ trait RunTimeTestTools[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToI
   self: Backend[M, Se, Pair, Single, Find, Path, ToInsert, Valid] with HasMonad[M] =>
 
   import query.dsl.components.Monad._
-
 
 
   override def equalQuery[A: Valid, B: Valid](p: Pair[A, B], q: Pair[A, B]): M[Boolean] =

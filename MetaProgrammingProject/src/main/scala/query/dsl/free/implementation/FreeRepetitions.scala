@@ -6,6 +6,7 @@ import scala.language.higherKinds
 
 /**
   * Freely implement repetition
+  *
   * @tparam Pair  pair query type
   * @tparam Single
   * @tparam Valid validity typeclass

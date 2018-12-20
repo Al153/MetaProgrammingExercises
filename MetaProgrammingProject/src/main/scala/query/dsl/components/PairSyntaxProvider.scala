@@ -4,13 +4,13 @@ import scala.language.higherKinds
 
 /**
   * Trait providing pair syntax
- *
-  * @tparam Pair - pair query type
+  *
+  * @tparam Pair   - pair query type
   * @tparam Single - single query type
   * @tparam Valid
   */
 trait PairSyntaxProvider[Pair[_, _], Single[_], Valid[_]] {
-  self: SimplePairs[Pair, Single, Valid]  =>
+  self: SimplePairs[Pair, Single, Valid] =>
 
   /**
     * The syntax implicit class

@@ -14,8 +14,19 @@ package object trivial {
   type Id[A] = A
   type Relation[A, B] = Set[(A, B)]
 
+  private def joinSet[A, B, C](leftRes: Relation[A, B], rightRes: Relation[B, C]): Relation[A, C] = {
+    // build an index of all values to join on right, since Proj_B(right) is a subset of Proj_B(Left)
+    val collectedRight = mutable.Map[B, mutable.Set[C]]()
+    for ((b, c) <- rightRes) {
+      val s = collectedRight.getOrElseUpdate(b, mutable.Set())
+      s += c
+    }
 
-
+    for {
+      (left, middle) <- leftRes
+      right <- collectedRight.getOrElse(middle, Set[C]())
+    } yield (left, right)
+  }
 
   case class Universe[A](u: Set[A])
 
@@ -70,18 +81,6 @@ package object trivial {
       result.map(_.reverse.toVector)
     }
 
-    private def doStep[E, A](searchStep: A => Set[A], fringe: Queue[List[A]], alreadyExplored: Set[A]): (Queue[List[A]], List[A], Set[A]) =
-      if (fringe.nonEmpty) {
-        val top = fringe.head // pop the top off of the fringe
-        val next = searchStep(top.head)
-        val newObjects = next.diff(alreadyExplored)
-        val newFringe = fringe.tail ++ newObjects.diff(alreadyExplored).map(_ :: top)
-        (newFringe, top, newObjects)
-      } else {
-        (fringe, List(), alreadyExplored)
-      }
-
-
     override def allShortestPaths[A: Universe](start: A, p: Relation[A, A]): Id[Set[Vector[A]]] = {
       // create a mutable index for traversal.
       val index: mutable.HashMap[A, Set[A]] = new mutable.HashMap[A, Set[A]]()
@@ -118,6 +117,16 @@ package object trivial {
       resBuilder.result().map(_.reverse.toVector)
     }
 
+    private def doStep[E, A](searchStep: A => Set[A], fringe: Queue[List[A]], alreadyExplored: Set[A]): (Queue[List[A]], List[A], Set[A]) =
+      if (fringe.nonEmpty) {
+        val top = fringe.head // pop the top off of the fringe
+        val next = searchStep(top.head)
+        val newObjects = next.diff(alreadyExplored)
+        val newFringe = fringe.tail ++ newObjects.diff(alreadyExplored).map(_ :: top)
+        (newFringe, top, newObjects)
+      } else {
+        (fringe, List(), alreadyExplored)
+      }
 
     override def insert[A: Universe, B: Universe](relations: Seq[Relation[A, B]]): Id[Unit] = () // constant value for now ...
 
@@ -131,8 +140,6 @@ package object trivial {
 
     override def andLeft[A: Universe, B: Universe](p: Relation[A, B], s: Set[A]): Relation[A, B] = p filter { case (a, _) => s contains a }
 
-    override def chain[A: Universe, B: Universe, C: Universe](p: Relation[A, B], q: Relation[B, C]): Relation[A, C] = joinSet(p, q)
-
     override def id[A: Universe]: Relation[A, A] = implicitly[Universe[A]].u.map(a => a -> a)
 
     override def distinct[A: Universe, B: Universe](p: Relation[A, B]): Relation[A, B] = p filter { case (a, b) => a != b }
@@ -145,6 +152,8 @@ package object trivial {
 
       aux(upto(p, 2))
     }
+
+    override def chain[A: Universe, B: Universe, C: Universe](p: Relation[A, B], q: Relation[B, C]): Relation[A, C] = joinSet(p, q)
 
     override def find[A: Universe](f: Set[A]): Set[A] = f & implicitly[Universe[A]].u
 
@@ -162,20 +171,6 @@ package object trivial {
 
       override def point[A](a: => A): Id[A] = a
     }
-  }
 
-
-  private def joinSet[A, B, C](leftRes: Relation[A, B], rightRes: Relation[B, C]): Relation[A, C] = {
-    // build an index of all values to join on right, since Proj_B(right) is a subset of Proj_B(Left)
-    val collectedRight = mutable.Map[B, mutable.Set[C]]()
-    for ((b, c) <- rightRes) {
-      val s = collectedRight.getOrElseUpdate(b, mutable.Set())
-      s += c
-    }
-
-    for {
-      (left, middle) <- leftRes
-      right <- collectedRight.getOrElse(middle, Set[C]())
-    } yield (left, right)
   }
 }

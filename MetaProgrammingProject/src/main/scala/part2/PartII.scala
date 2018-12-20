@@ -7,8 +7,8 @@ import core.user.dsl.{CompletedRelation, E, HasRecovery, Relation}
 import core.user.interfaces.DBInstance
 import core.user.schema.{Findable, SchemaObject}
 import query.dsl.DSL
-import query.dsl.components.Monad
-import query.dsl.testing.RunTimeTestTools
+import query.dsl.components.{HasMonad, Monad}
+import query.dsl.testing.{AssertionTools, RunTimeTestTools}
 
 class PartII[Err <: E : HasRecovery] {
   type Op[A] = Operation[Err, A]
@@ -18,8 +18,11 @@ class PartII[Err <: E : HasRecovery] {
   def toPartIII(d: DBInstance[Err]):
   DSL[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
     with RunTimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
+    with AssertionTools[Op]
   = new DSL[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
-    with RunTimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject] {
+    with RunTimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
+    with HasMonad[Op]
+    with AssertionTools[Op] {
 
     import d._
 
@@ -79,6 +82,9 @@ class PartII[Err <: E : HasRecovery] {
     override def equalResult[A: SchemaObject](s: Set[A], t: Set[A]): Op[Boolean] = m.point(s == t)
 
     override def equalResult[A: SchemaObject, B: SchemaObject](s: Set[(A, B)], t: Set[(A, B)]): Op[Boolean] = m.point(s == t)
+
+    override def assertM(condition: Op[Boolean], msg: String): Op[Unit] = condition.flatMap[Unit](b =>
+      if (b) m.point(()) else m.point(throw new Exception("Failed assertion: " + msg)))
   }
 }
 

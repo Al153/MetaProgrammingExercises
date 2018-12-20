@@ -4,9 +4,10 @@ import scala.language.higherKinds
 
 /**
   * Trait providing syntax for symmetric (repetition based) queries.
-  * @tparam Pair The type of pair based queries
+  *
+  * @tparam Pair   The type of pair based queries
   * @tparam Single The type of single queries
-  * @tparam Valid The typeclass ensuring validity of types put in the database.
+  * @tparam Valid  The typeclass ensuring validity of types put in the database.
   */
 trait SymmetricSyntaxProvider[Pair[_, _], Single[_], Valid[_]] {
   // Requires these dependencies

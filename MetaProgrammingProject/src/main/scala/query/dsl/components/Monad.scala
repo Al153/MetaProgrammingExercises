@@ -2,6 +2,7 @@ package query.dsl.components
 
 /**
   * Simple monad typeclass
+  *
   * @tparam M - the monad
   */
 trait Monad[M[_]] {
