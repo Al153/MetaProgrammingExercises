@@ -9,7 +9,6 @@ import scala.language.{higherKinds, implicitConversions}
 case class OptimisingDSL[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]](
                                                                                                           dsl: DSL[M, Se, Pair, Single, Find, Path, ToInsert, Valid]
                                                                                                         ) {
-
   // sealed trait OptimisedPairs[]
   sealed abstract class PairsQuery[A: Valid, B: Valid] {
     def render: Pair[A, B]
@@ -186,8 +185,5 @@ case class OptimisingDSL[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], T
 
       private def runOptimisations[A: Valid](s: SinglesQuery[A]): SinglesQuery[A] = ???
     }
-  trait Optimisation {
-    def onAnd[A: Valid, B: Valid]()
-  }
 }
 

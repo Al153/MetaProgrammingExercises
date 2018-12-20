@@ -41,6 +41,7 @@
 
 \todo{
     \begin{itemize}
+        \item More signposting
         \item Free optimisation?
         \item Polymorphic optimisations?
         \item First class relations? 
@@ -53,7 +54,7 @@ This project is an extension of my Part II project \footnote{Dissertation: https
 
 \chapter{The Original Project}
 \section{Introduction}
-My original part II project built the full stack of a graph database system. It provided a strongly typed DSL, a typeclass based framework for allowing an application developer's types to be used in queries, and several different backends targeting an in-memory datastore, PostgreSQL, and the LMDB memory-mapped datastore. This project acts as a DSL generator of sorts for faster, more consistent generation of  DSLs for graph-query executors.
+My original part II project built the full stack of a graph database system. It provided a strongly typed DSL, a type-class based framework for allowing an application developer's types to be used in queries, and several different backends targeting an in-memory datastore, PostgreSQL, and the LMDB memory-mapped datastore. This project acts as a DSL generator of sorts for faster, more consistent generation of  DSLs for graph-query executors.
 \subsection{The Query Language}
 The original project uses an algebraic-datatype-based query language to specify queries that search for pairs of related objects and individual objects. As defined in my dissertation, the basic query constructors are as follows.
 \begin{equation}
@@ -84,17 +85,19 @@ The original project uses an algebraic-datatype-based query language to specify 
         \end{split}
     \end{equation} 
 
-Full details, including the type system that applies over this query language can be found in \todo{Section of my dissertation}
+Full details, including the type system that applies over this query language can be found in \todo{Section of my dissertation}. Once a query is built, it may be executed in one of several ways by the \texttt{\todo{DBExecutor}} of a given implementation. For example, the executor may simply read the queries from the database or perhaps do pathfinding over the graph with the queries.
 \section{Flaws in the Project}
 There are several flaws in the front end of this project, as necessitated by the time constraints of a part II project, as well as my desire to look at the big picture of the system rather than focusing for too long on the front end.
+\subsection{Fixed Query ADT}
+The original project constructed a fixed ADT representing each query. ADT was then traversed or otherwise evaluated to interpret the results of the query. In order to get pattern-match-exhaustivity checking, one has to seal a trait in Scala. This means that the ADT backing the DSL is fixed and cannot be directly extended or reduced. A tagless-final DSL is much easier to extend or reduce.
 
-\begin{itemize}
-\item Fixed query ADT - prevents extension or partial implementation - can fix using tagless Finally
-\item Lack of polymorphism puts unnecessary constraints on back-end implementation
-\item The fixed \texttt{SchemaObject} type-class restricts what can be stored in a database by a backend. (Can only store simple tuple types). This can be fixed by allowing polymorphism over the typeclass used to verify types manipulated by the DSL.
-\item Operation monad / set return type prevents us from doing delayed computation. Implementations must directly interpret the queries. It would be better to allow partial evaluation/compilation of queries to give objects that contain optimised code to be run later.
-\item 
-\end{itemize}
+\subsection{Lack of Polymorphism}
+the lack of polymorphism in the original DSL puts unnecessary constraints on back-end implementation.
+\paragraph{Types Stored in the Database}
+The original project uses the \texttt{SchemaObject} type-class to specify which types can be stored in the database. This type-class is fixed, only allowing types that can be represented as tuples of simple primitive types to be stored in the database. Allowing polymorphism over the type-class used to verify types manipulated by the DSL allows for more freedom of implementation. For example, we may choose to store more complex types to the database, such as wide floating point values, or higher order relations.
+
+\paragraph{Fixed Return Types}
+The original database interface requires implementations to return instances of the specific \texttt{Operation} monad (a stack of asynchrony, state, error monads). And only allows read operations to return the eager \texttt{Set} type of results. That is, the return type is \texttt{Operation[Error, Set[(A, B)]]}. This specific return type constraint prevents implementors from returning more interesting values, such as compiled code for later use, or lazy alternatives to sets. Furthermore, it locked the implementation into using the same monadic, branching time, update semantics specified by the \texttt{Operation} monad.
 
 \chapter{The New DSL}
 This section introduces the new structure of the DSL.
@@ -107,21 +110,32 @@ The DSL is polymorphic in the type constructors \texttt{Pair} and \texttt{Single
 The new DSL framework is built in a modular way. 
 Allows more freedom to implementors to pick and choose which functionality they want to provide to the database system. This allows more specific DSLs to be designed to use particular parts of the algebra.
 \subsection{Important Classes/Types/Traits}
+\paragraph{Query Building}
+The tagless-final interface for building queries is separated into several pieces.
+\todo{Check names}
 \begin{itemize}
-    \item The main tagless final interface for building queries is separated up.
-    \item SimplePairs, Singles, SimpleRepetition, FixedPoint
-    \item The backend \todo{Name?} trait provides the read/write/shortest path operations
+    \item \textbf{Simple Pairs} - \texttt{and}, \texttt{or}, \texttt{id}, etc.
+    \item \textbf{Singles} - All of the single query combinators.
+    \item \textbf{Simple Repetitions} - \texttt{upto}, \texttt{exactly}
+    \item \textbf{Fixed Point} - \texttt{fixedpoint}
+\end{itemize}
+
+This allows implementors to implement the interfaces in separate parts. It also allows for construction of less expressive DSLs, for example, without the fixed point combinator.
+
+\paragraph{Execution}
+The methods for interpreting a query are separated out into separate interfaces for each function, straight interpretation of queries, path-finding using queries, and updates to the database. These are separated as in the case of queries to allow for partial implementation.
+
+\begin{itemize}
     \item collection of assertion and boolean test modules allowing the construction of a unit testing framework.
     \item Currying module?
-    \item simple Monad  typeclass for specifying the output type.
+    \item simple Monad typeclass for specifying the output type.
     \item \todo{there's more  I think}
 \end{itemize}
 
-\begin{itemize}
-\item Several modules
-\item each specifies a subset of functionality
+\subsection{Dependency Management}
+This module system allows us to delegate dependency management to the type system. Each module is designed as a mix-in trait.
 
-\item Module which provided operations \todo{Name?}
+\begin{itemize}
 \item Allows backend implementors to partially implement the specification and only provide operations that make sense for the given back end.
 \item Allows backend implementors to additional module that make sense
 \item Dependency management is deferred to the Scala type-system using mix-in traits.
