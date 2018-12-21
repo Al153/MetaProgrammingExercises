@@ -1,6 +1,7 @@
-package impl.bytecode
+package impl.bytecode.implementation
 
-import impl.bytecode.values._
+import impl.bytecode.Find
+import impl.bytecode.implementation.values._
 
 import scala.collection.mutable
 
@@ -30,7 +31,7 @@ class Compilable[A] private(val typeId: UniverseId) {
   } else {
 
     val obj = StackObject(typeId, LocalId(localIdCount))
-    println(s"Created StackObject: $a -> $obj")
+
     universe += a
     objects += obj
     recoveryMap += obj -> a

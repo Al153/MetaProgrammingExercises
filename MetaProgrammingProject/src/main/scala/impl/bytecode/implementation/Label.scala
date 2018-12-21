@@ -1,4 +1,4 @@
-package impl.bytecode
+package impl.bytecode.implementation
 
 case class Label(l: Int)
 

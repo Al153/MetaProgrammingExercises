@@ -1,6 +1,6 @@
-package impl.bytecode
+package impl.bytecode.implementation
 
-import impl.bytecode.values.PairRelation
+import impl.bytecode.implementation.values.PairRelation
 
 abstract class Relation[A: Compilable, B: Compilable] {
   def pairs: Set[(A, B)]

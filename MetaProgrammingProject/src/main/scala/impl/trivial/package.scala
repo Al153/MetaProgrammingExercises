@@ -1,12 +1,13 @@
 package impl
 
+import impl.common.Id
 import query.dsl.DSL
 import query.dsl.components._
 import query.dsl.free.implementation.FreeRepetitions
 
 import scala.collection.immutable.Queue
 import scala.collection.mutable
-import impl.trivial.Utils.joinSet
+import common._
 
 /**
   * Very naive.
@@ -14,7 +15,7 @@ import impl.trivial.Utils.joinSet
   * Uses a few optimisations, but only to simplify writing it
   */
 package object trivial {
-  type Id[A] = A
+
   type Relation[A, B] = Set[(A, B)]
 
 
@@ -157,11 +158,6 @@ package object trivial {
 
     override implicit def m: Monad[Id] = IdMonad
 
-    object IdMonad extends Monad[Id] {
-      override def bind[A, B](ma: Id[A], f: A => Id[B]): Id[B] = f(ma)
-
-      override def point[A](a: => A): Id[A] = a
-    }
 
   }
 }

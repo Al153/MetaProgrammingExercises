@@ -1,28 +1,26 @@
 package impl.bytecode.erased.adt
 
-import impl.bytecode.Procedure
+sealed trait P[+Procedure]
 
-sealed trait P
+case class Prim[Procedure](p: Procedure) extends P[Procedure]
 
-case class Prim(p: Procedure) extends P
+case class AndP[Procedure](p: P[Procedure], q: P[Procedure]) extends P[Procedure]
 
-case class AndP(p: P, q: P) extends P
+case class Distinct[Procedure](p: P[Procedure]) extends P[Procedure]
 
-case class Distinct(p: P) extends P
+case class Id[Procedure](p: Procedure) extends P[Procedure]
 
-case class Id(p: Procedure) extends P
+case class Exactly[Procedure](p: P[Procedure], n: Int, id: Procedure) extends P[Procedure]
 
-case class Exactly(p: P, n: Int, id: Procedure) extends P
+case class OrP[Procedure](p: P[Procedure], q: P[Procedure]) extends P[Procedure]
 
-case class OrP(p: P, q: P) extends P
+case class Join[Procedure](p: P[Procedure], q: P[Procedure]) extends P[Procedure]
 
-case class Join(p: P, q: P) extends P
+case class AndLeft[Procedure](p: P[Procedure], s: S[Procedure]) extends P[Procedure]
 
-case class AndLeft(p: P, s: S) extends P
+case class AndRight[Procedure](p: P[Procedure], s: S[Procedure]) extends P[Procedure]
 
-case class AndRight(p: P, s: S) extends P
+case class Rev[Procedure](p: P[Procedure]) extends P[Procedure]
 
-case class Rev(p: P) extends P
-
-case class Fix(p: P, id: Procedure) extends P
+case class Fix[Procedure](p: P[Procedure], id: Procedure) extends P[Procedure]
 

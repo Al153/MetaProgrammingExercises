@@ -1,12 +1,13 @@
 package impl.bytecode
 
-import query.dsl.components.UptoRange
+import impl.bytecode.implementation.{Compilable, Relation, SimpleImplementation}
 import impl.trivial.Examples.{Car, Person}
 import impl.trivial.Universe
+import query.dsl.components.UptoRange
 
 object Examples extends ExampleObjects {
-
-  import BytecodeCompiler._
+  val impl = new SimpleImplementation.Implementation()
+  import impl._
 
   def main(args: Array[String]): Unit = {
 
