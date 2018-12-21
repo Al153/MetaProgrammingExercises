@@ -1,9 +1,12 @@
+package impl
+
 import query.dsl.DSL
 import query.dsl.components._
 import query.dsl.free.implementation.FreeRepetitions
 
 import scala.collection.immutable.Queue
 import scala.collection.mutable
+import impl.trivial.Utils.joinSet
 
 /**
   * Very naive.
@@ -14,19 +17,7 @@ package object trivial {
   type Id[A] = A
   type Relation[A, B] = Set[(A, B)]
 
-  private def joinSet[A, B, C](leftRes: Relation[A, B], rightRes: Relation[B, C]): Relation[A, C] = {
-    // build an index of all values to join on right, since Proj_B(right) is a subset of Proj_B(Left)
-    val collectedRight = mutable.Map[B, mutable.Set[C]]()
-    for ((b, c) <- rightRes) {
-      val s = collectedRight.getOrElseUpdate(b, mutable.Set())
-      s += c
-    }
 
-    for {
-      (left, middle) <- leftRes
-      right <- collectedRight.getOrElse(middle, Set[C]())
-    } yield (left, right)
-  }
 
   case class Universe[A](u: Set[A])
 

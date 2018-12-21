@@ -1,7 +1,8 @@
-package trivial
+package impl.trivial
 
+import impl.trivial.TrivialBackend._
 import query.dsl.components.AtleastRange
-import trivial.TrivialBackend._
+
 
 // checking branch
 object Examples {
@@ -83,4 +84,5 @@ object Examples {
   case class Car(brand: String, model: String)
 
   case class Person(name: String)
+
 }

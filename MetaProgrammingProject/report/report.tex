@@ -42,15 +42,15 @@
 \todo{
     \begin{itemize}
         \item More signposting
-        \item Free optimisation?
-        \item Polymorphic optimisations?
         \item First class relations? 
         \item Compiled backend example.
+        \item More examples
     \end{itemize}
 }
 
 \abstract
-This project is an extension of my Part II project \footnote{Dissertation: https://github.com/Al153/PartIIProject/blob/master/diss/diss.pdf,\\ Code: https://github.com/Al153/PartIIProject/tree/master/src}, the purpose of which was to build a purely functional graph database system. Although the DSL I produced for the project did provide Scala-compile-time type checking, it used an ADT to construct DSL terms and hence was not tagless-final. Further more, the DSL required implementations to return values of a specific monad type, which made it unsuitable for implementations other than immediate interpreters, such as an implementation that compiles queries for later execution. While my Part II project focused on the full stack and optimisations of particular backends, this L305 project focuses on the front end of a graph database system. The project's primary aim is to make open up the interface of the DSL to more varied implementation. It replicates the original DSL in a Modular tagless-final fashion, allowing implementations to choose which operations and syntax they support. Furthermore, it provides a high degree of polymorphism, both in the types used to represent queries, the return types of the database, and in the typeclasses used by an implementation to classify which types can be stored in the database. The project also contains code to plug in my part II backends to use the new DSL. Finally, the project also contains "free" implementations of modules and a suite of "free" optimisations.
+This project is an extension of my Part II project \footnote{Dissertation: https://github.com/Al153/PartIIProject/blob/master/diss/diss.pdf,\\ Code: https://github.com/Al153/PartIIProject/tree/master/src}, the purpose of which was to build a purely functional graph database system. Although the DSL I produced for the project did provide Scala-compile-time type checking, it used an ADT to construct DSL terms and hence was not tagless-final. Further more, the DSL required implementations to return values of a specific monad type, which made it unsuitable for implementations other than immediate interpreters, such as an implementation that compiles queries for later execution. While my Part II project focused on the full stack and optimisations of particular backends, this L305 project focuses on the front end of a graph database system. The project's primary aim is to open up the interface of the DSL to more varied implementations. It replicates the original DSL in a Modular tagless-final fashion, allowing implementors to choose which operations and syntax they support. Furthermore, it provides a high degree of polymorphism, both in the types used to represent queries, the return types of the database, and in the typeclasses used by an implementation to classify which types can be stored in the database. The project also includes combinators to generate "free" implementations of parts of the specification of DSLs. Finally, I present three new back-end implementations: a simple, set based, in memory interpreter, interfacing code to plug in the back-ends for my original part II project to this part III project, and a simple optimising compiler implementation that compiles queries for later execution.
+
 
 \chapter{The Original Project}
 \section{Introduction}
@@ -101,6 +101,16 @@ The original database interface requires implementations to return instances of 
 
 \chapter{The New DSL}
 This section introduces the new structure of the DSL.
+
+\section{Introduction}
+In the use cases of this project, I make reference to several different classes of people.
+
+\begin{itemize}
+    \item \textbf{spec writer} - The person, in this case myself, building the modules and combinators used to construct back end implementations.
+    \item \textbf{Implementor} - The person using this project to build a graph query DSL.
+    \item \textbf{Application Programmer} - The person using a graph query DSL, built by the implementor, to build an application.
+
+\end{itemize}
  
 \section{Tagless-Final}
 The new DSL is a modular tagless-final based system. There are several traits to implement, each containing a subset of the operations defined above. This allows for implementations to only partially implement the specification or to add new modules.
@@ -125,6 +135,9 @@ This allows implementors to implement the interfaces in separate parts. It also 
 \paragraph{Execution}
 The methods for interpreting a query are separated out into separate interfaces for each function, straight interpretation of queries, path-finding using queries, and updates to the database. These are separated as in the case of queries to allow for partial implementation.
 
+\paragraph{Assertion and Test Suite}
+I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad typeclass for the return type.
+
 \begin{itemize}
     \item collection of assertion and boolean test modules allowing the construction of a unit testing framework.
     \item Currying module?
@@ -133,36 +146,47 @@ The methods for interpreting a query are separated out into separate interfaces 
 \end{itemize}
 
 \subsection{Dependency Management}
-This module system allows us to delegate dependency management to the type system. Each module is designed as a mix-in trait.
+This module system allows us to delegate dependency management to the type-system. Each module is designed as a mix-in trait. It can make requirements on the rest of the implementations by requiring mix-ins. \todo{what's the name of this?} Hence, modules without the correct dependency on the implementation would not compile. This gives back-end implementors a set of type-level combinators for building the shape of their back-end. It also makes life easier for application writers, since the available methods are visible at compile-time, or write-time when using an IDE, such as Intellij Idea. If one was build a similar modular system in a Java style, this information would not be visible in the type signature of the database system, and could lead to exceptions being thrown at runtime due to an unimplemented method being called.
 
-\begin{itemize}
-\item Allows backend implementors to partially implement the specification and only provide operations that make sense for the given back end.
-\item Allows backend implementors to additional module that make sense
-\item Dependency management is deferred to the Scala type-system using mix-in traits.
-\item In a language like java, similar, objects with a large variety of options are implemented at the value level, requiring runtime checking and the ugly use of exceptions etc.
-\item Each trait gives its dependencies as self-mix-ins.
-\end{itemize}
+The dependency management scheme can also be used by implementors to add their own extension modules.
+
+\todo{Example of dependency management}
 
 \section{Syntax}
-\begin{itemize}
-    \item Each module comes with a syntax provider, which provides the appropriate implicit conversions to add the original DSL syntax to the arbitrary types.
-    \item Uses a "With-module" mix in system, meaning that the syntax provider just needs to be mixed in to provide the appropriate syntax methods.
-    \item Dependency checking is done by the Scala type system/compiler
-    \item Syntax is provided "locally" rather than "globally" to put less pressure on Scala's type inference, due to the many type variables that need to be inferred.
-\end{itemize}
+To facilitate the use of Neo-4j-like arrow syntax, there are a series of syntax provider modules. A syntax provider is a module providing the implicit conversions to allow the required syntax. Each syntax provider is a mix-in, parameter-polymorphic, trait using mix-ins \todo{What's the word for this?} to manage dependencies using the type-system as discussed above \todo{Where?}. Hence the application programmer need only import the DSL implementation's internal methods to get access to the syntax.
+
+\begin{verbatim}
+    val dsl: DSL[Type Params] = ...
+    import dsl._
+
+    val result = read(Knows -->--> Owns >> (Has4Wheels))
+    // result: M[Se[Person, Car]]
+\end{verbatim}
+
+Syntax providers are kept modular in order to facilitate extended or partial implementations of the spec. The providers are required, as opposed to globally scoped objects due to the large number of polymorphic type parameters, which the Scala type-system is unable to infer. \todo{Put this last sentence earlier.}
+
 
 \section{Polymorphism}
+\todo{DSL example}
 A lot of this flexibility and deferral to the scala type system is made possible by the large amount of polymorphism allowed in the system. Each trait is polymorphic in as many variables as possible in order to generalise the system to the greatest extent.
+
+\subsection{Query Types}
+As with most tagless-final interfaces, the \texttt{Pair[A, B]} and \texttt{Single[A]} type constructors are provided as type parameters.
+\subsection{Type Validation}
+The \texttt{SchemaObject} type-class used in the original project to store application-programmers' types in the database is replaced by the \texttt{Valid[_]} type-class, allowing implementors to specify their own validity type-classes.
+\todo{Have I explained what the validity type class is for?}
+\subsection{Return Types}
+The project is also polymorphic in the return type container and sequencing type constructors. The container type, \texttt{M} wraps the result of all operations, as it generalises the \texttt{Operation} monad used in the original project. The container type can be required to be a monad by using the \texttt{HasMonad[M]} mix-in. Other implementations may want to use another kind of type, such as \texttt{Rep} as the container type. The sequencing type constructor is the type of results returned by read queries. In the original project, it is implemented using eager \texttt{Set}s. Other implementations may want to use lazy sets instead, especially when dealing with large databases.
+
+\subsection{Managing Polymorphism}
+The large number of polymorphic type parameters bloats the type signatures of components and means we have to be careful about type inference. \todo{examples}
 \begin{itemize}
-    \item Polymorphic in much more than just query types
-    \item Polymorphic in the verification type-class, so implementations can define ways to store or query over all sorts of values. E.G. could store relations as objects. (think exponential objects in categories) Previously, only simple tuple types could be stored in a given database.
-    \item Polymorphic in return-set type so back-ends can provide lazy or compiled implementations. The original system required an eagerly evaluated set.
-    \item Polymorphic on return monad, so implementations can specify what level of error-handling/typing strength they want - can start by using exceptions to handle errors. Could also use the either monad or similar to express computations. Can use state monad or similar to compile the code into something more interesting.
     \item Having lots of polymorphic type parameters makes it harder for the scala type system to infer types, which would litter queries in the generated DSL with type annotations. Sub optimal.
     \item\todo{Examples}
 \end{itemize}
 
 \section{Testing}
+Another set of additional modules
 \begin{itemize}
     \item Provides modules for assertions and a testing framework
     \item \todo{Rewrite Part II testing framework as a mix-in module}
@@ -175,7 +199,19 @@ I've provided several simple implementations for this project to showcase featur
 The first implementation is one that trivially uses sets  to store objects in memory. The validity type-class is the "Universe" type class that verifies that there exists a finite universe of objects of the parameter type in memory. This implementation uses simple techniques to generate the DSL in a free manner.
 
 \section{Original Back-End}
-A second implementation is one that provides a set of connectors to allow a suitable DB instance to be used as as a L305-Project DSL instance. This is a simple case of deferring to the instance's original methods.
+A second implementation is one that provides a set of connectors to allow a suitable DB instance to be used as as a L305-Project DSL instance. This is a simple case of deferring functionality to the instance's original methods and correctly filling in types. 
+\todo{code example}
+\todo{Wher can I find the implementation examples?}
+
+\section{Byte Code Back-End}
+\todo{\begin{itemize}
+    \item I've created a back end that compiles to bytecode for a simple stack based VM.
+    \item The implementation converts tagless final terms to untyped AST terms - makes optimisations easier.
+    \item The AST terms have simple optimisations applied (?) and are then converted to bytecode terms.
+    \item I've written a simple imperative interpreter.
+    \item Would look towards a polymorphic interpreter/monadic interpreter.
+    \item Uses loop unrolling
+\end{itemize}}
 
 
 \chapter{Free Implementations}
@@ -198,9 +234,11 @@ A free implementation can be used by mixing it in with implementations of the re
 object MyDSL extends Dependency1[Types1] with Dependency2[Types2] with Free[Types]
 \end{verbatim}
 
+As an example, I have created a free implementation of \todo{SimpleRepetitions} depending on \todo{SimplePairs} as explained above. This  implementation uses the exponentiation-by-squaring technique explained in my part II project \todo{which section} and can be found in \todo{which section?}
+
 One downside to overuse of free implementations is that they may not provide well optimised or performant queries for particular back ends. For example, it may be possible to carry out a backend-specific optimisation that is not applicable in the general case.
 
 \chapter{Free Optimisations}
-There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. Hence I've constructed a combinator for applying simple optimisations. \todo{Actually build this}
+There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
     
 \end{document}

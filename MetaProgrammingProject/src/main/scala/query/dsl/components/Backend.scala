@@ -1,5 +1,7 @@
 package query.dsl.components
 
+import scala.language.higherKinds
+
 /**
   * The interpreter trait.
   * An implementation of this trait gives the system the main means to read and write to and from the database

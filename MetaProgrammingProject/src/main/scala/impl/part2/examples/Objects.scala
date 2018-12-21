@@ -1,6 +1,6 @@
-package part2.examples
+package impl.part2.examples
 
-import part2.examples.Schema._
+import impl.part2.examples.Schema._
 
 
 object Objects {

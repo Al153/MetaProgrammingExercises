@@ -1,12 +1,12 @@
-package part2.examples
+package impl.part2.examples
 
 import core.user.dsl.{Empty, _}
 import impl.memory.MemoryDB
 import impl.memory.errors.MemoryError
-import part2.PartII
-import part2.PartII._
-import part2.examples.Objects._
-import part2.examples.Schema._
+import impl.part2.PartII
+import impl.part2.PartII._
+import impl.part2.examples.Objects._
+import impl.part2.examples.Schema._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}

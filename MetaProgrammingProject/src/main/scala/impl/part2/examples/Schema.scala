@@ -1,4 +1,4 @@
-package part2.examples
+package impl.part2.examples
 
 import core.user.dsl.Relation
 import core.user.schema._
