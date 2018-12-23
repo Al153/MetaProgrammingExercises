@@ -1,9 +1,16 @@
 package impl.bytecode
 
+import impl.bytecode.typeclasses.{IsCompilable, IsLabel, IsProcedure}
 import impl.common.Id
 
-
+/**
+  * Simple implementation.
+  *
+  * This file contains a set a of typeclass instantiations.
+  */
 package object implementation {
+  type Find[A] = Set[A]
+
   implicit object CompilableIsCompilable extends IsCompilable[Compilable, Procedure] {
     override def getId[A: Compilable]: Procedure = implicitly[Compilable[A]].id
   }

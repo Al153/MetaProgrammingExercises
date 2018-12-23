@@ -4,11 +4,13 @@ import impl.bytecode.implementation.values.StackValue
 import impl.bytecode.{BytecodeImpl, Interpreter}
 import impl.common._
 
+/**
+  * Basic implementation of the [[BytecodeImpl]] partial implementation.
+  *
+  * Simple stack machine interpreter.
+  */
 object SimpleImplementation extends BytecodeImpl[Id, Set, Relation, Set, Label, Procedure, Compilable] {
   override type Result = StackValue
-
-
-
 
   override def interpreter: Interpreter[Id, StackValue, Label, Procedure] = BytecodeInterpreter
 

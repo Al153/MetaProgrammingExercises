@@ -1,6 +1,6 @@
 package impl.bytecode
 
-import impl.bytecode.implementation.{Compilable, Relation, SimpleImplementation}
+import impl.bytecode.implementation._
 import impl.trivial.Examples.{Car, Person}
 import impl.trivial.Universe
 import query.dsl.components.UptoRange

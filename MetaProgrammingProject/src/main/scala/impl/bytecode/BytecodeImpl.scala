@@ -1,26 +1,26 @@
 package impl.bytecode
 
 import impl.bytecode.erased.adt._
+import impl.bytecode.typeclasses.{IsCompilable, IsLabel, IsProcedure}
 import query.dsl.components.Monad._
 import query.dsl.components._
 
-trait IsCompilable[C[_], Proc] {
-  def getId[A: C]: Proc
-}
-
-trait IsLabel[L, M[_]] {
-  def newLabel(): M[L]
-}
-
-abstract class IsProcedure[P, Relation[_, _], Compilable[_], Find[_]] {
-  def convertRelation[A: Compilable, B: Compilable](r: Relation[A, B]): P
-
-  def convertObject[A: Compilable](a: A): P
-
-  def convertFindable[A: Compilable](fa: Find[A]): P
-}
+import scala.language.higherKinds
 
 
+/**
+  * A partial implementation which compiles queries down to a type-erased bytecode.
+  * Implementations of this class then provide an interpreter and
+  * a means to extract results in the computation monad.
+  *
+  * @tparam M          - the computation monad
+  * @tparam Se         - the collection type that values are returned in.
+  * @tparam Relation   - type of relations to insert/.
+  * @tparam Find       - type of findables
+  * @tparam L          - a label class for the bytecode
+  * @tparam Proc       - a procedure class for the bytecode
+  * @tparam Compilable - the compilable typeclass
+  */
 abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compilable[_]]
 (
   implicit isLabel: IsLabel[L, M],
@@ -28,27 +28,52 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
   CC: IsCompilable[Compilable, Proc],
   isProcedure: IsProcedure[Proc, Relation, Compilable, Find]
 ) {
+  /**
+    * Type of results returned by the bytecode interpreter.
+    */
+  protected type Result
 
-  type Result
+  /**
+    * Extract a pair result from the result of a calculation
+    */
+  protected def extractPair[A: Compilable, B: Compilable](p: Result): M[Se[(A, B)]]
 
-  def extractPair[A: Compilable, B: Compilable](p: Result): M[Se[(A, B)]]
+  /**
+    * Extract a single result from the result of a calculation.
+    */
+  protected def extractSingle[A: Compilable](result: Result): M[Se[A]]
 
-  def extractSingle[A: Compilable](result: Result): M[Se[A]]
+  /**
+    * Implementations should provide an interpreter.
+    *
+    * @return
+    */
+  protected def interpreter: Interpreter[M, Result, L, Proc]
 
+  /**
+    * Strongly typed AST wrapper
+    */
+  case class Pr[A: Compilable, B: Compilable] private[bytecode] (p: P[Proc])
 
-  case class Pr[A: Compilable, B: Compilable](p: P[Proc])
+  /**
+    *
+    * Strongly typed AST wrapper
+    */
+  case class Sn[A: Compilable] private[bytecode] (s: S[Proc])
 
-  case class Sn[A: Compilable](s: S[Proc])
-
-  def interpreter: Interpreter[M, Result, L, Proc]
-
-  class Rep[A](bytecode: Vector[Bytecode[L, Proc]], extract: Result => M[A]) {
+  /**
+    * Class containing un-executed bytecode that returns an A
+    */
+  final class Rep[A] private[bytecode] (bytecode: Vector[Bytecode[L, Proc]], extract: Result => M[A]) {
     def run(): M[A] = interpreter.interpret(bytecode).flatMap(extract)
   }
 
   type ResultMonad[A] = M[Rep[A]]
 
-  class Implementation
+  /**
+    * Pre-made implementation class that can be instantiated from a instantiation of the parent class.
+    */
+  final class Implementation
     extends PairQueries[Pr, Sn, Compilable]
       with SingleQueries[Pr, Sn, Find, Compilable]
       with Reads[ResultMonad, Se, Pr, Sn, Compilable]
@@ -56,15 +81,23 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
       with SingleSyntaxProvider[Pr, Sn, Find, Compilable]
       with SymmetricSyntaxProvider[Pr, Sn, Compilable] {
 
-
+    /**
+      * Provides syntax for lifting relations
+      */
     implicit class RelationOps[A: Compilable, B: Compilable](r: Relation[A, B]) {
       def p: Pr[A, B] = Pr(Prim[Proc](isProcedure.convertRelation(r)))
     }
 
+    /**
+      * Provides syntax for lifting objects
+      */
     implicit class ObjectOps[A: Compilable](a: A) {
       def o: Sn[A] = Sn(PrimS(isProcedure.convertObject(a)))
     }
 
+    /**
+      * provides syntax for lifting findables
+      */
     implicit class FindableOps[A: Compilable](fa: Find[A]) {
       def f: Sn[A] = Sn(PrimS(isProcedure.convertFindable(fa)))
     }
@@ -151,20 +184,28 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
       */
     override def distinct[A: Compilable, B: Compilable](p: Pr[A, B]): Pr[A, B] = Pr(Distinct(p.p))
 
+    /**
+      * Read a pair from the database
+      *
+      */
     override def readPair[A: Compilable, B: Compilable](p: Pr[A, B]): M[Rep[Se[(A, B)]]] = {
       for {
         program <- compile(p.p)
-        repResult = new Rep(program, extractPair[A, B])
-      } yield repResult
+      } yield new Rep(program, extractPair[A, B])
     }
 
+    /**
+      * Read a single query from the database.
+      */
     override def readSingle[A: Compilable](s: Sn[A]): M[Rep[Se[A]]] =
       for {
         program <- compile(s.s)
-        repResult = new Rep(program, extractSingle[A])
-      } yield repResult
+      } yield new Rep(program, extractSingle[A])
 
-    def compile(pr: P[Proc]): M[Vector[Bytecode[L, Proc]]] =
+    /**
+      * Recursively compile the AST
+      */
+    private def compile(pr: P[Proc]): M[Vector[Bytecode[L, Proc]]] =
       pr match {
         case Prim(p) => MM.point(Vector(Call(p)))
         case AndP(p, q) =>
@@ -243,7 +284,11 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
           }
       }
 
-    def compile(si: S[Proc]): M[Vector[Bytecode[L, Proc]]] =
+
+    /**
+      * Recursive compile the AST
+      */
+    private def compile(si: S[Proc]): M[Vector[Bytecode[L, Proc]]] =
       si match {
         case PrimS(p) => MM.point(Vector(Call(p)))
         case OrS(s, t) => for {
@@ -261,9 +306,5 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
             pp <- compile(p)
           } yield ss ++ pp :+ FromB
       }
-
-
   }
-
-
 }

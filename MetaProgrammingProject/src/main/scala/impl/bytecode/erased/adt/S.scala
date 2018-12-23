@@ -1,9 +1,10 @@
 package impl.bytecode.erased.adt
 
-import impl.bytecode.implementation.Procedure
-
 /**
   * Type-Erased ADT for Single Queries
+  *
+  * @tparam Procedure Provides the procedure type for the underlying bytecode implementatin
+  *                   This is to allow compilation of find terms and identity terms.
   */
 sealed trait S[Procedure]
 

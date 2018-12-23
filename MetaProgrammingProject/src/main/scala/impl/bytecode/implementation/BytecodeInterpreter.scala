@@ -1,14 +1,29 @@
 package impl.bytecode.implementation
 
 import impl.bytecode.implementation.values.{Integer, PairRelation, SingleRelation, StackValue}
-import impl.bytecode.{AndB, AndLB, AndRB, Bytecode, Call, DisB, Drop, Dup, FromB, Interpreter, JoinB, Jump, MarkLabel, OrB, Over, Push, RevB, RotateBack3, RotateForward3, Swap, Test, TestNotEqual}
-import impl.common.{Id, joinSet}
-import impl.common._
+import impl.bytecode._
+import impl.common.{Id, joinSet, _}
 
+/**
+  * A simple, imperative, side-effectful bytecode interpreter, based on a stack machine.
+  */
 object BytecodeInterpreter extends
   Interpreter[Id, StackValue, Label, Procedure] {
+
+  /**
+    * Interprets a program then returns the top stack value
+    *
+    * @param program the bytecode to interpret
+    * @return The top stack value on the left over stack
+    */
   def interpret(program: Vector[Bytecode[Label, Procedure]]): StackValue = {
+
+    /**
+      * Build an index of all the label locations in the program in order to effect the jumps
+      */
     val mapBuilder = Map.newBuilder[Label, Int]
+
+
     for ((bytecode, index) <- program.zipWithIndex) {
       bytecode match {
         case MarkLabel(l) => mapBuilder += l -> index
@@ -18,13 +33,19 @@ object BytecodeInterpreter extends
 
     val labelMap = mapBuilder.result()
 
-    var index = 0
+    /**
+      *  Set up local variables
+      */
+    var programCounter = 0
     var stack = List.empty[StackValue]
 
-    while (index < program.length) {
+    /**
+      * Simple interpretation loop; halts when the program counter points after the end of the program
+      */
+    while (programCounter < program.length) {
       var indexChanged = false
 
-      program(index) match {
+      program(programCounter) match {
         case OrB =>
           stack = stack match {
             case SingleRelation(s) :: SingleRelation(t) :: rest => SingleRelation(s | t) :: rest
@@ -36,13 +57,13 @@ object BytecodeInterpreter extends
             case PairRelation(p) :: PairRelation(q) :: rest => PairRelation(p & q) :: rest
           }
         case AndLB => stack = stack match {
-          case SingleRelation(s) :: PairRelation(p)  :: rest => PairRelation(p filter { case (a, _) => s.contains(a) }) :: rest
+          case SingleRelation(s) :: PairRelation(p) :: rest => PairRelation(p filter { case (a, _) => s.contains(a) }) :: rest
         }
         case FromB => stack = stack match {
           case PairRelation(p) :: SingleRelation(s) :: rest => SingleRelation(p collect { case (a, b) if s.contains(a) => b }) :: rest
         }
         case AndRB => stack match {
-          case  SingleRelation(s) :: PairRelation(p) :: rest => PairRelation(p filter { case (_, b) => s.contains(b) }) :: rest
+          case SingleRelation(s) :: PairRelation(p) :: rest => PairRelation(p filter { case (_, b) => s.contains(b) }) :: rest
         }
         case Call(p) => stack = p.p(stack)
         case RotateBack3 => stack = stack match {
@@ -66,13 +87,13 @@ object BytecodeInterpreter extends
         case Test(label) => stack match {
           case Integer(0) :: rest =>
             stack = rest
-            index = labelMap(label)
+            programCounter = labelMap(label)
             indexChanged = true
 
           case Integer(_) :: _ => ()
         }
         case Jump(label) =>
-          index = labelMap(label)
+          programCounter = labelMap(label)
           indexChanged = true
         case TestNotEqual(label) =>
           stack match {
@@ -81,7 +102,7 @@ object BytecodeInterpreter extends
                 stack = rest
               } else {
                 stack = rest
-                index = labelMap(label)
+                programCounter = labelMap(label)
                 indexChanged = true
               }
           }
@@ -101,7 +122,7 @@ object BytecodeInterpreter extends
       }
 
       if (!indexChanged) {
-        index += 1
+        programCounter += 1
       }
     }
 

@@ -1,5 +1,8 @@
 package impl.bytecode.implementation.values
 
+/**
+  * Values that can be placed on the stack
+  */
 sealed trait StackValue
 
 case class PairRelation(p: Set[(StackObject, StackObject)]) extends StackValue

@@ -1,6 +1,11 @@
 package impl.bytecode
 
 
+/**
+  * Set of bytecode operations
+  * @tparam Label - Label types
+  * @tparam Procedure - procedure types.
+  */
 sealed trait Bytecode[+Label, +Procedure]
 
 case object OrB extends Bytecode[Nothing, Nothing]
