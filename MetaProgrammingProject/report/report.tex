@@ -38,19 +38,29 @@
 
 \begin{document}
 \title{A Modular, Extensible, and Polymorphic Graph Query DSL}
+\author{Alexander Taylor}
 
-\todo{
-    \begin{itemize}
-        \item More signposting
-        \item First class relations? 
-        \item Compiled backend example.
-        \item More examples
-    \end{itemize}
+\maketitle
+{\large
+\begin{tabular}{p{5cm}p{10cm}}
+Name:       & \bf Alexander Taylor      \\
+CRSID:      & \bf at736 \\
+College:    & \bf St John's College  \\
+Module:     & \bf Metaprogramming, L305 \\
+Assignment: & \bf 4 \\
+Word Count: & \bf \todo{todo}\footnote{Calculated by running \texttt{texCount (http://app.uio.no/ifi/texcount/online.php)}}   \\
+                   \\ 
+\end{tabular}
 }
 
-\abstract
-This project is an extension of my Part II project \footnote{Dissertation: https://github.com/Al153/PartIIProject/blob/master/diss/diss.pdf,\\ Code: https://github.com/Al153/PartIIProject/tree/master/src}, the purpose of which was to build a purely functional graph database system. Although the DSL I produced for the project did provide Scala-compile-time type checking, it used an ADT to construct DSL terms and hence was not tagless-final. Further more, the DSL required implementations to return values of a specific monad type, which made it unsuitable for implementations other than immediate interpreters, such as an implementation that compiles queries for later execution. While my Part II project focused on the full stack and optimisations of particular backends, this L305 project focuses on the front end of a graph database system. The project's primary aim is to open up the interface of the DSL to more varied implementations. It replicates the original DSL in a Modular tagless-final fashion, allowing implementors to choose which operations and syntax they support. Furthermore, it provides a high degree of polymorphism, both in the types used to represent queries, the return types of the database, and in the typeclasses used by an implementation to classify which types can be stored in the database. The project also includes combinators to generate "free" implementations of parts of the specification of DSLs. Finally, I present three new back-end implementations: a simple, set based, in memory interpreter, interfacing code to plug in the back-ends for my original part II project to this part III project, and a simple optimising compiler implementation that compiles queries for later execution.
 
+
+\abstract
+This project is an extension of my Part II project \footnote{Dissertation: https://github.com/Al153/PartIIProject/blob/master/diss/diss.pdf,\\ Code: https://github.com/Al153/PartIIProject/tree/master/src}, the purpose of which was to build a purely functional graph database system. Although the DSL I produced for the project did provide Scala-compile-time type checking, it used an ADT to construct DSL terms and hence was not tagless-final. Further more, the DSL required implementations to return values of a specific monad type, which made it unsuitable for implementations other than immediate interpreters, such as an implementation that compiles queries for later execution. While my Part II project focused on the full stack and optimisations of particular backends, this L305 project focuses on the front end of a graph database system. The project's primary aim is to open up the interface of the DSL to more varied implementations. It replicates the original DSL in a Modular tagless-final fashion, allowing implementors to choose which operations and syntax they support. Furthermore, it provides a high degree of polymorphism, both in the types used to represent queries, the return types of the database, and in the typeclasses used by an implementation to classify which types can be stored in the database. The project also includes combinators to generate "free" implementations of parts of the specification of DSLs. Finally, I present three new back-end implementations: a simple, set based, in memory interpreter, interfacing code to plug in the back-ends for my original part II project to this part III project, and a simple optimising compiler implementation that compiles queries to a bytecode for later execution.
+
+
+\tableofcontents
+\newpage
 
 \chapter{The Original Project}
 \section{Introduction}
@@ -98,6 +108,7 @@ The original project uses the \texttt{SchemaObject} type-class to specify which 
 
 \paragraph{Fixed Return Types}
 The original database interface requires implementations to return instances of the specific \texttt{Operation} monad (a stack of asynchrony, state, error monads). And only allows read operations to return the eager \texttt{Set} type of results. That is, the return type is \texttt{Operation[Error, Set[(A, B)]]}. This specific return type constraint prevents implementors from returning more interesting values, such as compiled code for later use, or lazy alternatives to sets. Furthermore, it locked the implementation into using the same monadic, branching time, update semantics specified by the \texttt{Operation} monad.
+
 
 \chapter{The New DSL}
 This section introduces the new structure of the DSL.
@@ -204,17 +215,34 @@ A second implementation is one that provides a set of connectors to allow a suit
 \todo{Wher can I find the implementation examples?}
 
 \section{Byte Code Back-End}
-\todo{\begin{itemize}
-    \item I've created a back end that compiles to bytecode for a simple stack based VM.
-    \item The implementation converts tagless final terms to untyped AST terms - makes optimisations easier.
-    \item The AST terms have simple optimisations applied (?) and are then converted to bytecode terms.
-    \item I've written a simple imperative interpreter.
-    \item Would look towards a polymorphic interpreter/monadic interpreter.
-    \item Uses loop unrolling
-\end{itemize}}
+
+In addition to these directly executing back-ends, I have also built a partial back end implementation for constructing back-ends that compile queries to a simple byte-code for later execution. I then created a simple implementation of this back-end which executes the bytecode in an imperative fashion in memory.
+
+\subsection{Further Parameterisation}
+This partial implementation allows parameterisation
+
+\subsection{Compilation Steps}
+This implementation first maps tagless final terms to a type-erased AST \todo{Link to code file?}. That is, the object types associated with each AST term are discarded. This allows us to make optimising transformations on the AST more easily. \texttt{Upto} terms are replaced with the equivalent \texttt{Exactly} terms, as seen \todo{where?}. Finally, primitive relations, identity relations, and findables are converted to nodes indicating a call to external procedures provided by the sub-implementation.
+
+The \texttt{Reads} module's methods are implemented by next compiling the AST into a bytecode program. Operations such as joins, unions, and intersections have opcode equivalents, whereas \texttt{Exactly} and \texttt{FixedPoint} operations are implemented using conditional loops. Furthermore, simple loop unrolling is used if the number of repetitions in an \texttt{Exactly} is less than 5. A binary exponentiation algorithm is used to find the fixed point.
+
+The \texttt{Reads} module's methods finally return a \texttt{Rep} type (not the same as in LMS) whose \texttt{run} method runs the packaged interpreter over the bytecode then uses subimplementation-provided methods to read values of the correct type from the result.
 
 
-\chapter{Free Implementations}
+\subsection{The Bytecode}
+The bytecode consists of \todo{How many?} instructions and is type-parameterized by a type of \texttt{Labels} for making jumps and \texttt{Procedures} for calculating primitive relations and sets. This allows an implementation to pick types that suit the exact use case.
+\todo{Quick explanation of the various bytecode operations provided.}
+
+\subsection{Interpreters}
+Subimplementations should provide an interpreter for the bytecode. The partial implementation is parameterised in such a way that implementations may provide a safe, monadic, locked down interpreter or a faster, less safe one.
+
+\subsection{Implementation}
+As an example, I have constructed a simple full implementation of the bytecode interpreter back-end. It implements the bytecode interpreter in a simple, imperative, stack machine. This does not use monads to control execution or handle errors and instead simply allows any exceptions to bubble up as in a Java program. The \texttt{Compilable} typeclass maps individual objects to a simple identifier which is processed by the stack machine.
+
+\chapter{Free Implementations and Optimisation}
+Since the module system exposes polymorphism over many parts of the implementation of a DSL, we can look for ways to exploit this polymorphism to reduce the burden on DSL implementors.
+
+\section{Implementations}
 Some modules of DSL implementations can be defined naturally in terms of other modules. For example, as proven in the original project \todo{Which section?}, one can formulate the \texttt{exactly(n, P)} operation as a collection of \texttt{chain} operations. Furthermore, one can formulate \texttt{upto(n, P)} as \texttt{exactly(n, or(p, Id))}. Hence we can freely implement \texttt{exactly} and \texttt{upto} given an implementation of the \texttt{SimplePairs} module. Free implementations give us combinators for generating default methods of DSLs in a clean manner.
 
 In general, we can construct a free implementation of a trait using mix-ins as follows:
@@ -238,7 +266,28 @@ As an example, I have created a free implementation of \todo{SimpleRepetitions} 
 
 One downside to overuse of free implementations is that they may not provide well optimised or performant queries for particular back ends. For example, it may be possible to carry out a backend-specific optimisation that is not applicable in the general case.
 
-\chapter{Free Optimisations}
-There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
+\section{Optimisation}
+There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. \todo{Examples} An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
+
+\chapter{Running The Code and Examples}
+Viewing and running this project is perhaps best performed in the Intellij Idea IDE, with SBT installed, as one can inspect the inferred type of a term using \todo{Alt + = }.
+As the project has some dependencies on my part II project, SBT will download it from github.
+
+Examples can be demonstrated by running: \todo{Which examples?}
+
+
+\chapter{Conclusion}
+This project has presented a set of tools and example uses of these tools for constructing graph database domain specific languages. It has done so making heavy use of the Scala type-system to allow flexibility of implementation and to ensure type and dependency-safety.
+
+Given more time, I would like to have explored a construction of a type algebra to allow polymorphic optimisations to be applied, entirely provided using mix-in traits. E.g.
+
+\begin{verbatim}
+object MyFastImplementation extends FreeOptimisations(MyImplementation) 
+    with DistributeJoinsUnions[...]
+    with DistinctElimination[...]
+    with JoinIdentity[...]
+\end{verbatim}
+
+Further, I would like to have had more time to explore bytecode compilation. I would have liked to provide a tagless-final interface for constructing bytecode programs, in order to allow the code to be compiled to more exotic backends, such as cross-compilation.
     
 \end{document}
