@@ -115,7 +115,7 @@ object BytecodeInterpreter extends
         case Drop => stack = stack match {
           case _ :: rest => rest
         }
-        case MarkLabel(l) => ()
+        case MarkLabel(_) => ()
         case RevB => stack = stack match {
           case PairRelation(p) :: rest => PairRelation(p map { case (a, b) => b -> a }) :: rest
         }

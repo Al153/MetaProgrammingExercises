@@ -8,7 +8,7 @@ import core.user.interfaces.DBInstance
 import core.user.schema.{Findable, SchemaObject}
 import query.dsl.DSL
 import query.dsl.components.{HasMonad, Lifts, Monad}
-import query.dsl.testing.{AssertionTools, RunTimeTestTools}
+import query.dsl.testing.{AssertionTools, RuntimeTestTools}
 
 /**
   * Simple interface to wrap a part 2 project implementation as an L305 project
@@ -23,11 +23,11 @@ class PartII[Err <: E : HasRecovery] {
 
   def toPartIII(d: DBInstance[Err]):
   DSL[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
-    with RunTimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
+    with RuntimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
     with AssertionTools[Op]
     with Lifts[Relation, FindPair, FindSingle, SchemaObject]
   = new DSL[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
-    with RunTimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
+    with RuntimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
     with HasMonad[Op]
     with AssertionTools[Op]
     with Lifts[Relation, FindPair, FindSingle, SchemaObject] {

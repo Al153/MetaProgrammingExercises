@@ -162,6 +162,8 @@ This module system allows us to delegate dependency management to the type-syste
 The dependency management scheme can also be used by implementors to add their own extension modules.
 
 \todo{Example of dependency management}
+An example of type-level dependency management is 
+
 
 \section{Syntax}
 To facilitate the use of Neo-4j-like arrow syntax, there are a series of syntax provider modules. A syntax provider is a module providing the implicit conversions to allow the required syntax. Each syntax provider is a mix-in, parameter-polymorphic, trait using mix-ins \todo{What's the word for this?} to manage dependencies using the type-system as discussed above \todo{Where?}. Hence the application programmer need only import the DSL implementation's internal methods to get access to the syntax.
