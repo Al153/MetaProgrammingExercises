@@ -1,8 +1,11 @@
-package impl.part2.examples
+package examples.part2
 
-import impl.part2.examples.Schema._
+import examples.part2.Schema._
 
 
+/**
+  * Define some objects for easy useage.
+  */
 object Objects {
   val Alice = Person("Alice")
   val Bob = Person("Bob")

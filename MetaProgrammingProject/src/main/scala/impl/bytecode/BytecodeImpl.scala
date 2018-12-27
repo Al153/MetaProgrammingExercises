@@ -53,18 +53,18 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
   /**
     * Strongly typed AST wrapper
     */
-  case class Pr[A: Compilable, B: Compilable] private[bytecode] (p: P[Proc])
+  case class Pr[A: Compilable, B: Compilable] private[bytecode](p: P[Proc])
 
   /**
     *
     * Strongly typed AST wrapper
     */
-  case class Sn[A: Compilable] private[bytecode] (s: S[Proc])
+  case class Sn[A: Compilable] private[bytecode](s: S[Proc])
 
   /**
     * Class containing un-executed bytecode that returns an A
     */
-  final class Rep[A] private[bytecode] (bytecode: Vector[Bytecode[L, Proc]], extract: Result => M[A]) {
+  final class Rep[A] private[bytecode](bytecode: Vector[Bytecode[L, Proc]], extract: Result => M[A]) {
     def run(): M[A] = interpreter.interpret(bytecode).flatMap(extract)
   }
 
@@ -79,21 +79,9 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
       with Reads[ResultMonad, Se, Pr, Sn, Compilable]
       with PairSyntaxProvider[Pr, Sn, Compilable]
       with SingleSyntaxProvider[Pr, Sn, Find, Compilable]
-      with SymmetricSyntaxProvider[Pr, Sn, Compilable] {
+      with SymmetricSyntaxProvider[Pr, Sn, Compilable]
+      with Lifts[Relation, Pr, Sn, Compilable] {
 
-    /**
-      * Provides syntax for lifting relations
-      */
-    implicit class RelationOps[A: Compilable, B: Compilable](r: Relation[A, B]) {
-      def p: Pr[A, B] = Pr(Prim[Proc](isProcedure.convertRelation(r)))
-    }
-
-    /**
-      * Provides syntax for lifting objects
-      */
-    implicit class ObjectOps[A: Compilable](a: A) {
-      def o: Sn[A] = Sn(PrimS(isProcedure.convertObject(a)))
-    }
 
     /**
       * provides syntax for lifting findables
@@ -212,7 +200,7 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
           for {
             pp <- compile(p)
             qq <- compile(q)
-          } yield pp ++ qq :+ OrB
+          } yield pp ++ qq :+ AndB
         case Distinct(p) => for {pp <- compile(p)} yield pp :+ DisB
         case Id(p) => MM.point(Vector(Call(p): Bytecode[L, Proc]))
         case Exactly(p, n, id) =>
@@ -233,7 +221,7 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
               Push(n), // ( p r n)
               MarkLabel(start), // (p r n)
 
-              Test(end), // (p r n). test(0) -> drop and jump; test(n > 0) -> continue, no drop
+              TestAndDecrement(end), // (p r n). test(0) -> drop and jump; test(n > 0) -> continue, drop n, push n-1
               RotateBack3, // ( n p r )
               Over, // (n p r p)
               JoinB, // (n p r.p)
@@ -306,5 +294,13 @@ abstract class BytecodeImpl[M[_], Se[_], Relation[_, _], Find[_], L, Proc, Compi
             pp <- compile(p)
           } yield ss ++ pp :+ FromB
       }
+
+    override protected def relationToPair[A: Compilable, B: Compilable](relation: Relation[A, B]): Pr[A, B] =
+      Pr(Prim(isProcedure.convertRelation(relation)))
+
+    override protected def objectToSingle[A: Compilable](a: A): Sn[A] =
+      Sn(PrimS(isProcedure.convertObject(a)))
+
   }
+
 }

@@ -43,8 +43,7 @@ object BytecodeInterpreter extends
       * Simple interpretation loop; halts when the program counter points after the end of the program
       */
     while (programCounter < program.length) {
-      var indexChanged = false
-
+      var pcChanged = false
       program(programCounter) match {
         case OrB =>
           stack = stack match {
@@ -62,7 +61,7 @@ object BytecodeInterpreter extends
         case FromB => stack = stack match {
           case PairRelation(p) :: SingleRelation(s) :: rest => SingleRelation(p collect { case (a, b) if s.contains(a) => b }) :: rest
         }
-        case AndRB => stack match {
+        case AndRB => stack = stack match {
           case SingleRelation(s) :: PairRelation(p) :: rest => PairRelation(p filter { case (_, b) => s.contains(b) }) :: rest
         }
         case Call(p) => stack = p.p(stack)
@@ -84,17 +83,18 @@ object BytecodeInterpreter extends
         case JoinB => stack = stack match {
           case PairRelation(q) :: PairRelation(p) :: rest => PairRelation(joinSet(p, q)) :: rest
         }
-        case Test(label) => stack match {
-          case Integer(0) :: rest =>
+        case TestAndDecrement(label) => stack match {
+          case Integer(n) :: rest if n <= 0 =>
             stack = rest
             programCounter = labelMap(label)
-            indexChanged = true
+            pcChanged = true
 
-          case Integer(_) :: _ => ()
+          case Integer(n) :: rest if n > 0 =>
+            stack = Integer(n - 1) :: rest
         }
         case Jump(label) =>
           programCounter = labelMap(label)
-          indexChanged = true
+          pcChanged = true
         case TestNotEqual(label) =>
           stack match {
             case a :: b :: rest =>
@@ -103,7 +103,7 @@ object BytecodeInterpreter extends
               } else {
                 stack = rest
                 programCounter = labelMap(label)
-                indexChanged = true
+                pcChanged = true
               }
           }
         case Push(i) =>
@@ -115,13 +115,13 @@ object BytecodeInterpreter extends
         case Drop => stack = stack match {
           case _ :: rest => rest
         }
-        case MarkLabel(_) => ()
+        case MarkLabel(l) => ()
         case RevB => stack = stack match {
           case PairRelation(p) :: rest => PairRelation(p map { case (a, b) => b -> a }) :: rest
         }
       }
 
-      if (!indexChanged) {
+      if (!pcChanged) {
         programCounter += 1
       }
     }

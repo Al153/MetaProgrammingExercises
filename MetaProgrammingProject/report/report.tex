@@ -270,10 +270,10 @@ One downside to overuse of free implementations is that they may not provide wel
 There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. \todo{Examples} An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
 
 \chapter{Running The Code and Examples}
-Viewing and running this project is perhaps best performed in the Intellij Idea IDE, with SBT installed, as one can inspect the inferred type of a term using \todo{Alt + = }.
-As the project has some dependencies on my part II project, SBT will download it from github.
+Viewing and running this project is perhaps best performed in the Intellij Idea IDE, with SBT installed, as one can inspect the inferred type of a term using \todo{Alt + = }, follow the definition of terms using \todo{ctrl + b}, and go back to previous views using \todo{ctrl + alt + left-arrow/right-arrow}.
+As the project has some dependencies on my part II project, SBT will download it from github and hence may take some time to run when the project is first compiled..
 
-Examples can be demonstrated by running: \todo{Which examples?}
+Examples can be demonstrated by running the main methods in \texttt{examples.TrivialExamples}, \texttt{examples.BytecodeExamples}, and \texttt{examples.Part2Examples}. Each class gives some example queries and also definitions of the appropriate typeclass.
 
 
 \chapter{Conclusion}

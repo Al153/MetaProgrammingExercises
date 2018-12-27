@@ -32,7 +32,7 @@ case object Dup extends Bytecode[Nothing, Nothing]
 
 case object JoinB extends Bytecode[Nothing, Nothing]
 
-case class Test[Label](label: Label) extends Bytecode[Label, Nothing] // if =0, jump and drop, else don't drop, continue
+case class TestAndDecrement[Label](label: Label) extends Bytecode[Label, Nothing] // if =0, jump and drop, else don't drop, continue
 
 case class Jump[Label](label: Label) extends Bytecode[Label, Nothing]
 

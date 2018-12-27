@@ -1,8 +1,11 @@
-package impl.part2.examples
+package examples.part2
 
 import core.user.dsl.Relation
 import core.user.schema._
 
+/**
+  * Schema typeclass instances
+  */
 object Schema {
 
   case class Person(n: String) {

@@ -3,7 +3,9 @@ package query.dsl.components
 import scala.language.higherKinds
 
 /**
-  * Trait providing pair syntax
+  * Trait providing pair syntax.
+  *
+  * A lot of this file appears red in Intellij, but it does compile!
   *
   * @tparam Pair   - pair query type
   * @tparam Single - single query type
@@ -18,11 +20,18 @@ trait PairSyntaxProvider[Pair[_, _], Single[_], Valid[_]] {
   implicit class PairSyntax[A: Valid, B: Valid](p: Pair[A, B]) {
 
 
-    def --><--[C: Valid](q: Pair[C, B]): Pair[A, C] = chain(p, reverse(q))
+    def --><--[C: Valid](q: Pair[C, B]): Pair[A, C] =
+      if (p == q) {
+        chain(p, reverse(q)).distinct
+      } else chain(p, reverse(q))
+
 
     def ->>-(s: Single[B]): Pair[A, B] = andRight(p, s)
 
-    def <---->[C: Valid](q: Pair[A, C]): Pair[B, C] = chain(reverse(p), q)
+    def <---->[C: Valid](q: Pair[A, C]): Pair[B, C] =
+      if (p == q) {
+        chain(reverse(p), q).distinct
+      } else chain(reverse(p), q)
 
     def -->-->[C: Valid](q: Pair[B, C]): Pair[A, C] = chain(p, q)
 

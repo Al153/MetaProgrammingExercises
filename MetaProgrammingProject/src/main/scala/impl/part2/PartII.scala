@@ -7,9 +7,15 @@ import core.user.dsl.{CompletedRelation, E, HasRecovery, Relation}
 import core.user.interfaces.DBInstance
 import core.user.schema.{Findable, SchemaObject}
 import query.dsl.DSL
-import query.dsl.components.{HasMonad, Monad}
+import query.dsl.components.{HasMonad, Lifts, Monad}
 import query.dsl.testing.{AssertionTools, RunTimeTestTools}
 
+/**
+  * Simple interface to wrap a part 2 project implementation as an L305 project
+  * implementation.
+  *
+  * The wrapper method is wrapped in a class to simplify type signatures
+  */
 class PartII[Err <: E : HasRecovery] {
   type Op[A] = Operation[Err, A]
   type R[A, B] = (A, Relation[A, B], B)
@@ -19,10 +25,12 @@ class PartII[Err <: E : HasRecovery] {
   DSL[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
     with RunTimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
     with AssertionTools[Op]
+    with Lifts[Relation, FindPair, FindSingle, SchemaObject]
   = new DSL[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
     with RunTimeTestTools[Op, Set, FindPair, FindSingle, Findable, Path, R, SchemaObject]
     with HasMonad[Op]
-    with AssertionTools[Op] {
+    with AssertionTools[Op]
+    with Lifts[Relation, FindPair, FindSingle, SchemaObject] {
 
     import d._
 
@@ -85,15 +93,10 @@ class PartII[Err <: E : HasRecovery] {
 
     override def assertM(condition: Op[Boolean], msg: String): Op[Unit] = condition.flatMap[Unit](b =>
       if (b) m.point(()) else m.point(throw new Exception("Failed assertion: " + msg)))
+
+    override protected def relationToPair[A: SchemaObject, B: SchemaObject](relation: Relation[A, B]): FindPair[A, B] = Rel(relation)
+
+    override protected def objectToSingle[A: SchemaObject](a: A): FindSingle[A] = Find(implicitly[SchemaObject[A]].findable(a))
   }
-}
 
-object PartII {
-  def relationToFindPair[A: SchemaObject, B: SchemaObject](relation: Relation[A, B]): FindPair[A, B] = Rel(relation)
-
-  def objectToFindSingle[A: SchemaObject](a: A): FindSingle[A] = Find(implicitly[SchemaObject[A]].findable(a))
-
-  implicit def r[A: SchemaObject, B: SchemaObject](r: Relation[A, B]): FindPair[A, B] = relationToFindPair(r)
-
-  implicit def o[A: SchemaObject](a: A): FindSingle[A] = objectToFindSingle(a)
 }

@@ -1,11 +1,49 @@
-package impl.trivial
+package examples
 
-import impl.trivial.TrivialBackend._
-import query.dsl.components.AtleastRange
+import impl.trivial._
+import query.dsl.components.AtLeast
+
+/**
+  * Some simple examples of running the TrivialBackend
+  */
+object TrivialExamples extends Objects {
+
+  import TrivialBackend._
+
+  def main(args: Array[String]): Unit = {
+    // Intellij/Scala can infer the type (the type is automatically annotated in Intellij
+    // :trivial.Relation[Person, Person]
+    def envies = wants --><-- owns
+    // :trivial.Relation[Person, Person]
+    def ownSame = owns --><-- owns
+    // :trivial.Relation[Person, Person]
+    def wantSame = wants --><-- wants
+
+    // we can simply execute the queries
+    println("Simple query: " + envies)
+    // or use the more backend-independent syntax
+    println("Using readPair (redundant): " + readPair(envies * AtLeast(1)))
+
+    // Queries are associative
+    println(wants --><-- wants -->--> owns)
+
+    // syntax allows for us to join over particular sets
+    println("Nobody envies someone over a small car: "  + (wants --> small <-- owns))
+
+    // pathfinding over relations
+    println("All Shortest Paths: " + allShortestPaths(Alice, envies | ownSame | wantSame))
+
+  }
 
 
-// checking branch
-object Examples {
+}
+
+case class Car(brand: String, model: String)
+
+case class Person(name: String)
+
+
+trait Objects {
   val ModelT = Car("Ford", "Model T")
   val Focus = Car("Ford", "Focus")
   val Fiesta = Car("Ford", "Fiesta")
@@ -71,18 +109,5 @@ object Examples {
   val large: Set[Car] = Set()
   val volksWagens: Set[Car] = carUniverse.u.filter(_.brand == "Volkswagen")
   val fords: Set[Car] = carUniverse.u.filter(_.brand == "Ford")
-
-  def main(args: Array[String]): Unit = {
-    println(envies)
-
-    println(envies * AtleastRange(1))
-  }
-
-  // Intellij/Scala can infer the type
-  def envies = wants --><-- owns
-
-  case class Car(brand: String, model: String)
-
-  case class Person(name: String)
 
 }

@@ -20,9 +20,9 @@ trait SymmetricSyntaxProvider[Pair[_, _], Single[_], Valid[_]] {
     def *(n: Int): Pair[A, A] = doExactly(n)
 
     def *(r: Repetition): Pair[A, A] = r match {
-      case BetweenRange(lo, hi) => chain(doExactly(lo), createUpto(hi - lo))
-      case UptoRange(n) => createUpto(n)
-      case AtleastRange(n) =>
+      case Between(lo, hi) => chain(doExactly(lo), createUpto(hi - lo))
+      case Upto(n) => createUpto(n)
+      case AtLeast(n) =>
         if (n == 0) fixedPoint(p)
         else chain(doExactly(n), fixedPoint(p))
     }

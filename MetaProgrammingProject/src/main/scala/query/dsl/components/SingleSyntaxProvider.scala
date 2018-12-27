@@ -12,7 +12,7 @@ import scala.language.higherKinds
   * @tparam Valid  the typeclass validating items that go in the database.
   */
 trait SingleSyntaxProvider[Pair[_, _], Single[_], Find[_], Valid[_]] {
-  self: SingleQueries[Pair, Single, Find, Valid] =>
+  self: SingleQueries[Pair, Single, Find, Valid] with SimplePairs[Pair, Single, Valid]=>
 
   /**
     * The provided syntax class
@@ -20,6 +20,8 @@ trait SingleSyntaxProvider[Pair[_, _], Single[_], Find[_], Valid[_]] {
   implicit class SingleSyntax[A: Valid](s: Single[A]) {
 
     def >>[B: Valid](p: Pair[A, B]): Single[B] = from[A, B](s, p)
+
+    def ->>-[B: Valid](p: Pair[A, B]): Pair[A, B] = andLeft(p, s)
 
     def &(t: Single[A]): Single[A] = and(s, t)
 
