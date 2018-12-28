@@ -147,26 +147,28 @@ This allows implementors to implement the interfaces in separate parts. It also 
 The methods for interpreting a query are separated out into separate interfaces for each function, straight interpretation of queries, path-finding using queries, and updates to the database. These are separated as in the case of queries to allow for partial implementation.
 
 \paragraph{Assertion and Test Suite}
-I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad typeclass for the return type.
+I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad typeclass for the return type. It consists of boolean operations for testing the structure of unexecuted queries and the result of testing queries, an assertion operation for checking the results of queries, and a syntax module for more natural expression of tests. This suite can be found in section \todo{Where?}.
 
-\begin{itemize}
-    \item collection of assertion and boolean test modules allowing the construction of a unit testing framework.
-    \item Currying module?
-    \item simple Monad typeclass for specifying the output type.
-    \item \todo{there's more  I think}
-\end{itemize}
-
-\subsection{Dependency Management}
-This module system allows us to delegate dependency management to the type-system. Each module is designed as a mix-in trait. It can make requirements on the rest of the implementations by requiring mix-ins. \todo{what's the name of this?} Hence, modules without the correct dependency on the implementation would not compile. This gives back-end implementors a set of type-level combinators for building the shape of their back-end. It also makes life easier for application writers, since the available methods are visible at compile-time, or write-time when using an IDE, such as Intellij Idea. If one was build a similar modular system in a Java style, this information would not be visible in the type signature of the database system, and could lead to exceptions being thrown at runtime due to an unimplemented method being called.
+\subsection{Dependency Management}\label{depManagement}
+This module system allows us to delegate dependency management to the type-system. Each module is designed as a mix-in trait. It can make requirements on the rest of the implementations by requiring mix-ins using self type annotation. Hence, modules without the correct dependency on the implementation will not compile. This gives back-end implementors a set of type-level combinators for building the shape of their back-end. It also makes life easier for application writers, since the available methods are visible at compile-time, or write-time when using an IDE, such as Intellij Idea. If one was build a similar modular system in a Java style, this information would not be visible in the type signature of the database system, and could lead to exceptions being thrown at runtime due to an unimplemented method being called.
 
 The dependency management scheme can also be used by implementors to add their own extension modules.
 
-\todo{Example of dependency management}
-An example of type-level dependency management is 
+A simple example of type-level dependency management is the \texttt{query.dsl.components.BatchInserts} trait, which supplies some syntactic sugar for inserting items.
 
+\begin{verbatim}
+trait BatchInserts[M[_], ToInsert[_, _], Valid[_]] {
+   self: Writes[M, ToInsert, Valid] =>
+   final def inserts[A: Valid, B: Valid](xs:  ToInsert[A, B]*): M[Unit] =
+        self.insert(xs.seq)
+}
+\end{verbatim}
+
+
+The trait requires itself to be mixed in with a Writes implementation, and hence provides some syntax to the class. There are further examples of this in the sections about syntax providers and free optimisations.
 
 \section{Syntax}
-To facilitate the use of Neo-4j-like arrow syntax, there are a series of syntax provider modules. A syntax provider is a module providing the implicit conversions to allow the required syntax. Each syntax provider is a mix-in, parameter-polymorphic, trait using mix-ins \todo{What's the word for this?} to manage dependencies using the type-system as discussed above \todo{Where?}. Hence the application programmer need only import the DSL implementation's internal methods to get access to the syntax.
+To facilitate the use of Neo-4j-like arrow syntax, there are a series of syntax provider modules. A syntax provider is a module providing the implicit conversions to allow the required syntax. Each syntax provider is a mix-in, parameter-polymorphic, trait using self-type annotations \footnote{https://docs.scala-lang.org/tour/self-types.html} to manage dependencies using the type-system as discussed in section \ref{depManagement}. Hence the application programmer need only import the DSL implementation's internal methods to get access to the syntax.
 
 \begin{verbatim}
     val dsl: DSL[Type Params] = ...
@@ -180,8 +182,22 @@ Syntax providers are kept modular in order to facilitate extended or partial imp
 
 
 \section{Polymorphism}
-\todo{DSL example}
 A lot of this flexibility and deferral to the scala type system is made possible by the large amount of polymorphism allowed in the system. Each trait is polymorphic in as many variables as possible in order to generalise the system to the greatest extent.
+
+
+\begin{verbatim}
+    trait DSL[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]]
+    extends Backend[M, Se, Pair, Single, Find, Path, ToInsert, Valid]
+      with PairSyntaxProvider[Pair, Single, Valid]
+      with SingleSyntaxProvider[Pair, Single, Find, Valid]
+      with SymmetricSyntaxProvider[Pair, Single, Valid]
+      with SimplePairs[Pair, Single, Valid]
+      with SimpleRepetition[Pair, Valid]
+      with FixedPoint[Pair, Valid]
+      with SingleQueries[Pair, Single, Find, Valid]
+      with BatchInserts[M, ToInsert, Valid]
+\end{verbatim}
+\todo{note: the extremely polymorphic DSL trait is parameterised in as many types as possible.}
 
 \subsection{Query Types}
 As with most tagless-final interfaces, the \texttt{Pair[A, B]} and \texttt{Single[A]} type constructors are provided as type parameters.
@@ -192,18 +208,17 @@ The \texttt{SchemaObject} type-class used in the original project to store appli
 The project is also polymorphic in the return type container and sequencing type constructors. The container type, \texttt{M} wraps the result of all operations, as it generalises the \texttt{Operation} monad used in the original project. The container type can be required to be a monad by using the \texttt{HasMonad[M]} mix-in. Other implementations may want to use another kind of type, such as \texttt{Rep} as the container type. The sequencing type constructor is the type of results returned by read queries. In the original project, it is implemented using eager \texttt{Set}s. Other implementations may want to use lazy sets instead, especially when dealing with large databases.
 
 \subsection{Managing Polymorphism}
-The large number of polymorphic type parameters bloats the type signatures of components and means we have to be careful about type inference. \todo{examples}
-\begin{itemize}
-    \item Having lots of polymorphic type parameters makes it harder for the scala type system to infer types, which would litter queries in the generated DSL with type annotations. Sub optimal.
-    \item\todo{Examples}
-\end{itemize}
+The large number of polymorphic type parameters bloats the type signatures of components and means we have to be careful about type inference. For example, if we provided a globally available implicit class with syntax for generating pair queries, it would need to look something like the following.
 
-\section{Testing}
-Another set of additional modules
-\begin{itemize}
-    \item Provides modules for assertions and a testing framework
-    \item \todo{Rewrite Part II testing framework as a mix-in module}
-\end{itemize}
+\begin{verbatim}
+implicit class PairSyntax[P[_, _], S[_], Valid[_], A: Valid, B: Valid](p: P[A, B]){
+    def &(q: P[A, B]): P[A, B] = and(p, q)
+    def -->>(s: S[B]): P[A, B] = andRight(p, s)
+    ...
+}
+\end{verbatim}
+
+In order to apply this syntax to \texttt{p: P[A, B]}, the Scala type system would need to correctly infer types of \texttt{S}, \texttt{Valid}. This is not possible for the Scala type system, meaning that \texttt{Nothing} types would populate the un-inferred type parameters. Ideally, we want Scala's type system to infer as many type parameters as possible and for application programmers to use as few type annotations as possible. As a result of this, having mixed-in syntax providers which provide the correct type parameters gives us the cleanest application syntax.
 
 \chapter{Back-end implementations}
 
@@ -213,8 +228,39 @@ The first implementation is one that trivially uses sets  to store objects in me
 
 \section{Original Back-End}
 A second implementation is one that provides a set of connectors to allow a suitable DB instance to be used as as a L305-Project DSL instance. This is a simple case of deferring functionality to the instance's original methods and correctly filling in types. 
-\todo{code example}
-\todo{Wher can I find the implementation examples?}
+
+\begin{verbatim}
+...
+= new DSL[...]
+    with RuntimeTestTools[...]
+    with HasMonad[Op]
+    with AssertionTools[Op]
+    with Lifts[...] {
+    ...
+    override def and[A: SchemaObject, B: SchemaObject](
+        p: FindPair[A, B], q: FindPair[A, B]
+    ): FindPair[A, B] =
+        And(p, q)
+    ...
+    override def upto[A: SchemaObject](
+        p: FindPair[A, A], n: Int
+    ): FindPair[A, A] =
+        Upto(n, p)
+    ...
+    override def readPair[A: SchemaObject, B: SchemaObject](
+        p: FindPair[A, B]
+    ): Operation[Err, Set[(A, B)]] =
+        d.executor.findPairs(p)
+    ...
+        
+    override def shortestPath[A: SchemaObject](
+        start: A, end: A, p: FindPair[A, A]
+    ): Operation[Err, Option[Path[A]]] =
+        d.executor.shortestPath(start, end, p)
+    ...
+}
+\end{verbatim}
+\todo{Note: example of some some implementation of the part II backend converter}
 
 \section{Byte Code Back-End}
 
@@ -232,8 +278,16 @@ The \texttt{Reads} module's methods finally return a \texttt{Rep} type (not the 
 
 
 \subsection{The Bytecode}
-The bytecode consists of \todo{How many?} instructions and is type-parameterized by a type of \texttt{Labels} for making jumps and \texttt{Procedures} for calculating primitive relations and sets. This allows an implementation to pick types that suit the exact use case.
-\todo{Quick explanation of the various bytecode operations provided.}
+The bytecode consists of set of stack machine instructions and is type-parameterized by a type of \texttt{Labels} for making jumps and \texttt{Procedures} for calculating primitive relations and sets. This allows an implementation to pick types that suit the exact use case. The bytecode consists of the following instructions.
+
+\begin{itemize}
+    \item Relation manipulation: \texttt{And}, \texttt{Or}, \texttt{Join}, etc.
+    \item An external procedure call: \texttt{Call}
+    \item Stack manipulation instructions: \texttt{Swap}, \texttt{Dup}, \texttt{Drop}
+    \item Conditional and unconditional branches \texttt{DecrementAndJump}, \texttt{BranchIfNotEqual} \todo{name?}, and \texttt{Jump}.
+    \item \todo{Any more?}
+\end{itemize}
+
 
 \subsection{Interpreters}
 Subimplementations should provide an interpreter for the bytecode. The partial implementation is parameterised in such a way that implementations may provide a safe, monadic, locked down interpreter or a faster, less safe one.
@@ -269,7 +323,9 @@ As an example, I have created a free implementation of \todo{SimpleRepetitions} 
 One downside to overuse of free implementations is that they may not provide well optimised or performant queries for particular back ends. For example, it may be possible to carry out a backend-specific optimisation that is not applicable in the general case.
 
 \section{Optimisation}
-There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. \todo{Examples} An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
+There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. For example, \texttt{Distinct} distributes over \texttt{and} and \texttt{chain} distributes over \texttt{or}, and \texttt{and} and \texttt{or} distribute over each other. These identities can be exploited to push "narrowing" operations (which decrease the size of the result, e.g. \texttt{and}) to the leaves of the AST and "widening" operations (which increase the size of the result, e.g. \texttt{or}) to the root of the AST. This means that the majority of query evaluation handles smaller subqueries and hence runs faster.
+
+An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
 
 \chapter{Running The Code and Examples}
 Viewing and running this project is perhaps best performed in the Intellij Idea IDE, with SBT installed, as one can inspect the inferred type of a term using \todo{Alt + = }, follow the definition of terms using \todo{ctrl + b}, and go back to previous views using \todo{ctrl + alt + left-arrow/right-arrow}.

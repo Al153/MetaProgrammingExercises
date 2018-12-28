@@ -1,5 +1,7 @@
 package query.dsl.components
 
+import scala.language.higherKinds
+
 /**
   * Simple mix in trait to provide batch insert syntax
   */
