@@ -10,6 +10,27 @@
 \usepackage{verbatim}
 
 \usepackage{tabstackengine}
+
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tikz}
+\usetikzlibrary{shadows}
+
+\newcommand*\keystroke[1]{%
+  \tikz[baseline=(key.base)]
+    \node[%
+      draw,
+      fill=white,
+      drop shadow={shadow xshift=0.25ex,shadow yshift=-0.25ex,fill=black,opacity=0.75},
+      rectangle,
+      rounded corners=2pt,
+      inner sep=1pt,
+      line width=0.5pt,
+      font=\scriptsize\sffamily
+    ](key) {#1\strut}
+  ;
+}
 \setstackEOL{\cr}
 \setstackgap{L}{\normalbaselineskip}
 
@@ -95,7 +116,7 @@ The original project uses an algebraic-datatype-based query language to specify 
         \end{split}
     \end{equation} 
 
-Full details, including the type system that applies over this query language can be found in \todo{Section of my dissertation}. Once a query is built, it may be executed in one of several ways by the \texttt{\todo{DBExecutor}} of a given implementation. For example, the executor may simply read the queries from the database or perhaps do pathfinding over the graph with the queries.
+Full details, including the type system that applies over this query language can be found in section 2.5 ("The Query Language", page 18). Once a query is built, it may be executed in one of several ways by the \texttt{DBExecutor} of a given implementation. For example, the executor may simply read the queries from the database or perhaps do pathfinding over the graph with the queries.
 \section{Flaws in the Project}
 There are several flaws in the front end of this project, as necessitated by the time constraints of a part II project, as well as my desire to look at the big picture of the system rather than focusing for too long on the front end.
 \subsection{Fixed Query ADT}
@@ -133,7 +154,6 @@ Allows more freedom to implementors to pick and choose which functionality they 
 \subsection{Important Classes/Types/Traits}
 \paragraph{Query Building}
 The tagless-final interface for building queries is separated into several pieces.
-\todo{Check names}
 \begin{itemize}
     \item \textbf{Simple Pairs} - \texttt{and}, \texttt{or}, \texttt{id}, etc.
     \item \textbf{Singles} - All of the single query combinators.
@@ -147,7 +167,7 @@ This allows implementors to implement the interfaces in separate parts. It also 
 The methods for interpreting a query are separated out into separate interfaces for each function, straight interpretation of queries, path-finding using queries, and updates to the database. These are separated as in the case of queries to allow for partial implementation.
 
 \paragraph{Assertion and Test Suite}
-I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad typeclass for the return type. It consists of boolean operations for testing the structure of unexecuted queries and the result of testing queries, an assertion operation for checking the results of queries, and a syntax module for more natural expression of tests. This suite can be found in section \todo{Where?}.
+I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad typeclass for the return type. It consists of boolean operations for testing the structure of unexecuted queries and the result of testing queries, an assertion operation for checking the results of queries, and a syntax module for more natural expression of tests. This suite can be found in the package \texttt{query.dsl.testing}. \todo{check this out}
 
 \subsection{Dependency Management}\label{depManagement}
 This module system allows us to delegate dependency management to the type-system. Each module is designed as a mix-in trait. It can make requirements on the rest of the implementations by requiring mix-ins using self type annotation. Hence, modules without the correct dependency on the implementation will not compile. This gives back-end implementors a set of type-level combinators for building the shape of their back-end. It also makes life easier for application writers, since the available methods are visible at compile-time, or write-time when using an IDE, such as Intellij Idea. If one was build a similar modular system in a Java style, this information would not be visible in the type signature of the database system, and could lead to exceptions being thrown at runtime due to an unimplemented method being called.
@@ -227,7 +247,8 @@ I've provided several simple implementations for this project to showcase featur
 The first implementation is one that trivially uses sets  to store objects in memory. The validity type-class is the "Universe" type class that verifies that there exists a finite universe of objects of the parameter type in memory. This implementation uses simple techniques to generate the DSL in a free manner.
 
 \section{Original Back-End}
-A second implementation is one that provides a set of connectors to allow a suitable DB instance to be used as as a L305-Project DSL instance. This is a simple case of deferring functionality to the instance's original methods and correctly filling in types. 
+A second implementation is one that provides a set of connectors to allow a suitable DB instance to be used as as a L305-Project DSL instance. This is a simple case of deferring functionality to the instance's original methods and correctly filling in types.
+This implementation can be found in \texttt{impl.part2} 
 
 \begin{verbatim}
 ...
@@ -270,7 +291,7 @@ In addition to these directly executing back-ends, I have also built a partial b
 This partial implementation allows parameterisation
 
 \subsection{Compilation Steps}
-This implementation first maps tagless final terms to a type-erased AST \todo{Link to code file?}. That is, the object types associated with each AST term are discarded. This allows us to make optimising transformations on the AST more easily. \texttt{Upto} terms are replaced with the equivalent \texttt{Exactly} terms, as seen \todo{where?}. Finally, primitive relations, identity relations, and findables are converted to nodes indicating a call to external procedures provided by the sub-implementation.
+This implementation first maps tagless final terms to a type-erased AST (found in package \texttt{impl.bytecode.erased.adt}). That is, the object types associated with each AST term are discarded. This allows us to make optimising transformations on the AST more easily. \texttt{Upto} terms are replaced with the equivalent \texttt{Exactly} terms, as seen in section 3.11.5 ("Complex Subexpression Elimination", page 61. Proof can be found in appendix C) of my dissertation. Finally, primitive relations, identity relations, and findables are converted to nodes indicating a call to external procedures provided by the sub-implementation.
 
 The \texttt{Reads} module's methods are implemented by next compiling the AST into a bytecode program. Operations such as joins, unions, and intersections have opcode equivalents, whereas \texttt{Exactly} and \texttt{FixedPoint} operations are implemented using conditional loops. Furthermore, simple loop unrolling is used if the number of repetitions in an \texttt{Exactly} is less than 5. A binary exponentiation algorithm is used to find the fixed point.
 
@@ -278,14 +299,14 @@ The \texttt{Reads} module's methods finally return a \texttt{Rep} type (not the 
 
 
 \subsection{The Bytecode}
-The bytecode consists of set of stack machine instructions and is type-parameterized by a type of \texttt{Labels} for making jumps and \texttt{Procedures} for calculating primitive relations and sets. This allows an implementation to pick types that suit the exact use case. The bytecode consists of the following instructions.
+The bytecode consists of set of stack machine instructions and is type-parameterized by a type of \texttt{Labels} for making jumps and \texttt{Procedures} for calculating primitive relations and sets. This allows an implementation to pick types that suit the exact use case. The bytecode consists of the following instructions, and can be found in \texttt{impl.bytecode.Bytecode}
 
 \begin{itemize}
     \item Relation manipulation: \texttt{And}, \texttt{Or}, \texttt{Join}, etc.
     \item An external procedure call: \texttt{Call}
     \item Stack manipulation instructions: \texttt{Swap}, \texttt{Dup}, \texttt{Drop}
-    \item Conditional and unconditional branches \texttt{DecrementAndJump}, \texttt{BranchIfNotEqual} \todo{name?}, and \texttt{Jump}.
-    \item \todo{Any more?}
+    \item Conditional and unconditional branches \texttt{TestAndDecrement}, \texttt{TestNotEqual}, and \texttt{Jump}.
+    \item Label marking (pseudo) instruction: \texttt{MarkLabel}
 \end{itemize}
 
 
@@ -299,7 +320,7 @@ As an example, I have constructed a simple full implementation of the bytecode i
 Since the module system exposes polymorphism over many parts of the implementation of a DSL, we can look for ways to exploit this polymorphism to reduce the burden on DSL implementors.
 
 \section{Implementations}
-Some modules of DSL implementations can be defined naturally in terms of other modules. For example, as proven in the original project \todo{Which section?}, one can formulate the \texttt{exactly(n, P)} operation as a collection of \texttt{chain} operations. Furthermore, one can formulate \texttt{upto(n, P)} as \texttt{exactly(n, or(p, Id))}. Hence we can freely implement \texttt{exactly} and \texttt{upto} given an implementation of the \texttt{SimplePairs} module. Free implementations give us combinators for generating default methods of DSLs in a clean manner.
+Some modules of DSL implementations can be defined naturally in terms of other modules. For example, as proven in the original project in section 3.11.5 ("Complex Subexpression Elimination", page 61. Proof in appendix C), one can formulate the \texttt{exactly(n, P)} operation as a collection of \texttt{chain} operations. Furthermore, one can formulate \texttt{upto(n, P)} as \texttt{exactly(n, or(p, Id))}. Hence we can freely implement \texttt{exactly} and \texttt{upto} given an implementation of the \texttt{SimplePairs} module. Free implementations give us combinators for generating default methods of DSLs in a clean manner.
 
 In general, we can construct a free implementation of a trait using mix-ins as follows:
 
@@ -318,7 +339,7 @@ A free implementation can be used by mixing it in with implementations of the re
 object MyDSL extends Dependency1[Types1] with Dependency2[Types2] with Free[Types]
 \end{verbatim}
 
-As an example, I have created a free implementation of \todo{SimpleRepetitions} depending on \todo{SimplePairs} as explained above. This  implementation uses the exponentiation-by-squaring technique explained in my part II project \todo{which section} and can be found in \todo{which section?}
+As an example, I have created a free implementation of \texttt{SimpleRepetition} depending on \texttt{SimplePairs} as explained above. This  implementation uses the exponentiation-by-squaring technique explained in my part II project (Section 3.11.5, "Complex Common Subexpression Elimination", page 61, proven in appendix C) and can be found in \texttt{query.dsl.free.implementation.FreeRepetitions}
 
 One downside to overuse of free implementations is that they may not provide well optimised or performant queries for particular back ends. For example, it may be possible to carry out a backend-specific optimisation that is not applicable in the general case.
 
@@ -327,8 +348,9 @@ There currently exist (and it may be possible to find more) examples of queries 
 
 An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
 
+
 \chapter{Running The Code and Examples}
-Viewing and running this project is perhaps best performed in the Intellij Idea IDE, with SBT installed, as one can inspect the inferred type of a term using \todo{Alt + = }, follow the definition of terms using \todo{ctrl + b}, and go back to previous views using \todo{ctrl + alt + left-arrow/right-arrow}.
+Viewing and running this project is perhaps best performed in the Intellij Idea IDE, with SBT installed, as one can inspect the inferred type of a term using \keystroke{Alt} + \keystroke{=}, follow the definition of terms using \keystroke{ctrl} + \keystroke{b}, and go back to previous views using \keystroke{ctrl} + \keystroke{alt} + \keystroke{left-arrow}/\keystroke{right-arrow}.
 As the project has some dependencies on my part II project, SBT will download it from github and hence may take some time to run when the project is first compiled.
 
 Examples can be demonstrated by running the main methods in \texttt{examples.TrivialExamples}, \texttt{examples.BytecodeExamples}, and \texttt{examples.Part2Examples}. Each class gives some example queries and also definitions of the appropriate typeclass.
