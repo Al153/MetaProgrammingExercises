@@ -167,7 +167,7 @@ This allows implementors to implement the interfaces in separate parts. It also 
 The methods for interpreting a query are separated out into separate interfaces for each function, straight interpretation of queries, path-finding using queries, and updates to the database. These are separated as in the case of queries to allow for partial implementation.
 
 \paragraph{Assertion and Test Suite}
-I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad typeclass for the return type. It consists of boolean operations for testing the structure of unexecuted queries and the result of testing queries, an assertion operation for checking the results of queries, and a syntax module for more natural expression of tests. This suite can be found in the package \texttt{query.dsl.testing}. \todo{check this out}
+I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad type-class for the return type. It consists of boolean operations for testing equality of the structure of unexecuted queries and for testing equality of the result of executing queries, an assertion operation for checking the results of tests, and a syntax module for more natural expression of tests. This suite can be found in the package \texttt{query.dsl.testing}.
 
 \subsection{Dependency Management}\label{depManagement}
 This module system allows us to delegate dependency management to the type-system. Each module is designed as a mix-in trait. It can make requirements on the rest of the implementations by requiring mix-ins using self type annotation. Hence, modules without the correct dependency on the implementation will not compile. This gives back-end implementors a set of type-level combinators for building the shape of their back-end. It also makes life easier for application writers, since the available methods are visible at compile-time, or write-time when using an IDE, such as Intellij Idea. If one was build a similar modular system in a Java style, this information would not be visible in the type signature of the database system, and could lead to exceptions being thrown at runtime due to an unimplemented method being called.
@@ -197,8 +197,72 @@ To facilitate the use of Neo-4j-like arrow syntax, there are a series of syntax 
     val result = read(Knows -->--> Owns >> (Has4Wheels))
     // result: M[Se[Person, Car]]
 \end{verbatim}
+\todo{Note: example of some syntax}
 
-Syntax providers are kept modular in order to facilitate extended or partial implementations of the spec. The providers are required, as opposed to globally scoped objects due to the large number of polymorphic type parameters, which the Scala type-system is unable to infer. \todo{Put this last sentence earlier.}
+The syntax providers are mix-in traits, rather than globally scoped objects due to the large number of polymorphic type parameters, which the Scala type-system would be unable to infer, as demonstrated below.
+
+\begin{verbatim}
+object PairSyntax {
+    implicit class Syntax1[
+        Pair[_, _], 
+        // Scala can't infer the type arguments for Single and Valid
+        Single[_], 
+        Valid[_], 
+        A: Valid, B: Valid
+    ](pab: Pair[A, B])(
+        // need to provide the DSL as an implicit parameter
+        implicit pairs: PairQueries[Pair, Single, Valid]
+    ) {
+        def -->>(s: S[B]): Pair[A, B] = pairs.andRight(pab, s)
+    }
+    
+    
+    implicit class Syntax2[Pair, A, B](pab: Pair[A, B]) {
+        // scala still cannot infer the typeclass "Valid"
+        def -->>[S[_], Valid[_]](s: S[B])(
+            implicit pairs: PairQueries[Pair, S, Valid],
+            va: Valid[A],
+            vb:  Valid[B]
+        ): Pair[A, B] = pairs.andRight(p, s)
+    }
+}
+\end{verbatim}
+\todo{Note: Syntax for \texttt{AndRight} provided by various global objects, demonstrating the need for mix in traits}
+
+
+The mix-in trait version does allow scala to correctly infer types.
+
+\begin{verbatim}
+// type parameters are defined when  the trait is mixed in.
+trait PairSyntax[Pair[_, _], Single[_], Valid[_]] {
+    // self-mix-in puts a type-level dependency check on the syntax provider.
+    self: PairQueries[Pair, Single, Valid] => 
+    implicit class Syntax[A: Valid, B: Valid](
+        pab: Pair[A, B]
+    ) {
+        // no type parameters to infer
+        def -->>(s: Single[B]): Pair[A, B] = self.andRight(p, s)
+    }
+}
+
+// Instantiate an instance
+object MyDSL
+    extends PairQueries[MyP, MyS, MyValid] 
+    with PairSyntax[MyP, MyS, MyValid] {
+        ...
+}
+
+// syntax provided with an import.
+import MyDSL._
+val myPair: MyPair[Dog, Cat] = ...
+val mySingle: MySingle[Cat] = ...
+
+// syntax can be used without type annotations
+val myComposite = myPair -->> mySingle
+\end{verbatim}
+\todo{Note: mix-in trait provides syntax without the type-inference problems encountered above}
+
+Syntax providers are kept modular in order to facilitate extended or partial implementations of the specification. 
 
 
 \section{Polymorphism}
@@ -222,8 +286,8 @@ A lot of this flexibility and deferral to the scala type system is made possible
 \subsection{Query Types}
 As with most tagless-final interfaces, the \texttt{Pair[A, B]} and \texttt{Single[A]} type constructors are provided as type parameters.
 \subsection{Type Validation}
-The \texttt{SchemaObject} type-class used in the original project to store application-programmers' types in the database is replaced by the \texttt{Valid[_]} type-class, allowing implementors to specify their own validity type-classes.
-\todo{Have I explained what the validity type class is for?}
+The \texttt{SchemaObject} type-class used in the original project to store application-programmers' types in the database is replaced by the \texttt{Valid[_]} type-class, allowing implementors to specify their own validity type-classes. This type-class specifies which types may be manipulated using the the query DSL. Implementations which store objects in a simple record-store, such as in my part II project, may use a typeclass which verifies types can be converted into a record of primitive types (i.e. a tuple of types such as \texttt{Int, Float, String}), whereas authors of more complex implementations may want to be able to manipulate types such as references or higher-order relations and so use a more complex type-class to allow this.
+
 \subsection{Return Types}
 The project is also polymorphic in the return type container and sequencing type constructors. The container type, \texttt{M} wraps the result of all operations, as it generalises the \texttt{Operation} monad used in the original project. The container type can be required to be a monad by using the \texttt{HasMonad[M]} mix-in. Other implementations may want to use another kind of type, such as \texttt{Rep} as the container type. The sequencing type constructor is the type of results returned by read queries. In the original project, it is implemented using eager \texttt{Set}s. Other implementations may want to use lazy sets instead, especially when dealing with large databases.
 
