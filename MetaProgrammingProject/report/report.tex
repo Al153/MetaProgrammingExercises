@@ -63,7 +63,7 @@
 
 \maketitle
 {\large
-\begin{tabular}{p{5cm}p{10cm}}
+\begin{tabular}{p{5cm}p{8cm}}
 Name:       & \bf Alexander Taylor      \\
 CRSID:      & \bf at736 \\
 College:    & \bf St John's College  \\
@@ -77,7 +77,7 @@ Word Count: & \bf \todo{todo}\footnote{Calculated by running \texttt{texCount (h
 
 
 \abstract
-This project is an extension of my Part II project \footnote{Dissertation: https://github.com/Al153/PartIIProject/blob/master/diss/diss.pdf,\\ Code: https://github.com/Al153/PartIIProject/tree/master/src}, the purpose of which was to build a purely functional graph database system. Although the DSL I produced for the project did provide Scala-compile-time type checking, it used an ADT to construct DSL terms and hence was not tagless-final. Further more, the DSL required implementations to return values of a specific monad type, which made it unsuitable for implementations other than immediate interpreters, such as an implementation that compiles queries for later execution. While my Part II project focused on the full stack and optimisations of particular backends, this L305 project focuses on the front end of a graph database system. The project's primary aim is to open up the interface of the DSL to more varied implementations. It replicates the original DSL in a Modular tagless-final fashion, allowing implementors to choose which operations and syntax they support. Furthermore, it provides a high degree of polymorphism, both in the types used to represent queries, the return types of the database, and in the typeclasses used by an implementation to classify which types can be stored in the database. The project also includes combinators to generate "free" implementations of parts of the specification of DSLs. Finally, I present three new back-end implementations: a simple, set based, in memory interpreter, interfacing code to plug in the back-ends for my original part II project to this part III project, and a simple optimising compiler implementation that compiles queries to a bytecode for later execution.
+This project is an extension of my Part II project \footnote{Dissertation: https://github.com/Al153/PartIIProject/blob/master/diss/diss.pdf,\\ Code: https://github.com/Al153/PartIIProject/tree/master/src}, the purpose of which was to build a purely functional graph database system. Although the DSL I produced for the project did provide Scala-compile-time type checking, it used an ADT to construct DSL terms and hence was not tagless-final. Further more, the DSL required implementations to return values of a specific monad type, which made it unsuitable for implementations other than immediate interpreters, such as an implementation that compiles queries for later execution. While my Part II project focused on the full stack and optimisations of particular back-ends, this L305 project focuses on the front end of a graph database system. The project's primary aim is to open up the interface of the DSL to more varied implementations. It replicates the original DSL in a Modular tagless-final fashion, allowing implementors to choose which operations and syntax they support. Furthermore, it provides a high degree of polymorphism, both in the types used to represent queries, the return types of the database, and in the type-classes used by an implementation to classify which types can be stored in the database. The project also includes combinators to generate "free" implementations of parts of the specification of DSLs. Finally, I present three new back-end implementations: a simple, set based, in memory interpreter, interfacing code to plug in the back-ends for my original part II project to this part III project, and a simple optimising compiler implementation that compiles queries to a bytecode for later execution.
 
 
 \tableofcontents
@@ -85,7 +85,7 @@ This project is an extension of my Part II project \footnote{Dissertation: https
 
 \chapter{The Original Project}
 \section{Introduction}
-My original part II project built the full stack of a graph database system. It provided a strongly typed DSL, a type-class based framework for allowing an application developer's types to be used in queries, and several different backends targeting an in-memory datastore, PostgreSQL, and the LMDB memory-mapped datastore. This project acts as a DSL generator of sorts for faster, more consistent generation of  DSLs for graph-query executors.
+My original part II project built the full stack of a graph database system. It provided a strongly typed DSL, a type-class based framework for allowing an application developer's types to be used in queries, and several different back-ends targeting an in-memory data-store, PostgreSQL, and the LMDB memory-mapped data-store. This project acts as a DSL generator of sorts for faster, more consistent generation of DSLs for graph-query executors.
 \subsection{The Query Language}
 The original project uses an algebraic-datatype-based query language to specify queries that search for pairs of related objects and individual objects. As defined in my dissertation, the basic query constructors are as follows.
 \begin{equation}
@@ -93,7 +93,7 @@ The original project uses an algebraic-datatype-based query language to specify 
     \begin{split}
     P  &\rightarrow Rel(R) \mbox{ Find pairs related by the named relation R}\\
     &\mid RevRel(R) \mbox{ Find pairs related by the named relation R in the reverse direction}\\
-    &\mid Chain(P, P) \mbox{   Find pairs related by the first subquery followed by the second}\\
+    &\mid Chain(P, P) \mbox{   Find pairs related by the first sub-query followed by the second}\\
     &\mid And(P, P) \mbox{  Find pairs related by both of the sub-queries}\\
     &\mid AndRight(P, S) \mbox{  Find pairs related by P where the right value is a result of S}\\
     &\mid AndLeft(P, S) \mbox{  Find pairs related by P where the left value is a result of S}\\
@@ -111,16 +111,16 @@ The original project uses an algebraic-datatype-based query language to specify 
         \begin{split}
         S & \rightarrow Find(F) \mbox{ Find values that match the findable F}\\
         &\mid From(S, P) \mbox{ Find values that are reachable from results of S via P}\\
-        &\mid AndS(S, S) \mbox{ Find values that are results of both subqueries}\\
-        &\mid OrS(S, S) \mbox{ Find values that are results of either subquery}
+        &\mid AndS(S, S) \mbox{ Find values that are results of both sub-queries}\\
+        &\mid OrS(S, S) \mbox{ Find values that are results of either sub-query}
         \end{split}
     \end{equation} 
 
-Full details, including the type system that applies over this query language can be found in section 2.5 ("The Query Language", page 18). Once a query is built, it may be executed in one of several ways by the \texttt{DBExecutor} of a given implementation. For example, the executor may simply read the queries from the database or perhaps do pathfinding over the graph with the queries.
+Full details, including the type system that applies over this query language can be found in section 2.5 ("The Query Language", page 18). Once a query is built, it may be executed in one of several ways by the \texttt{DBExecutor} of a given implementation. For example, the executor may simply read the queries from the database or perhaps do path-finding over the graph with the queries.
 \section{Flaws in the Project}
 There are several flaws in the front end of this project, as necessitated by the time constraints of a part II project, as well as my desire to look at the big picture of the system rather than focusing for too long on the front end.
 \subsection{Fixed Query ADT}
-The original project constructed a fixed ADT representing each query. ADT was then traversed or otherwise evaluated to interpret the results of the query. In order to get pattern-match-exhaustivity checking, one has to seal a trait in Scala. This means that the ADT backing the DSL is fixed and cannot be directly extended or reduced. A tagless-final DSL is much easier to extend or reduce.
+The original project constructed a fixed ADT representing each query. ADT was then traversed or otherwise evaluated to interpret the results of the query. In order to get pattern-match-exhaustiveness checking, one has to seal a trait in Scala. This means that the ADT backing the DSL is fixed and cannot be directly extended or reduced. A tagless-final DSL is much easier to extend or reduce.
 
 \subsection{Lack of Polymorphism}
 the lack of polymorphism in the original DSL puts unnecessary constraints on back-end implementation.
@@ -170,11 +170,7 @@ The methods for interpreting a query are separated out into separate interfaces 
 I have replicated a small subset of the unit testing suite I used in my part II project. This is implemented as a mix-in trait depending on a full DSL implementation, and a monad type-class for the return type. It consists of boolean operations for testing equality of the structure of unexecuted queries and for testing equality of the result of executing queries, an assertion operation for checking the results of tests, and a syntax module for more natural expression of tests. This suite can be found in the package \texttt{query.dsl.testing}.
 
 \subsection{Dependency Management}\label{depManagement}
-This module system allows us to delegate dependency management to the type-system. Each module is designed as a mix-in trait. It can make requirements on the rest of the implementations by requiring mix-ins using self type annotation. Hence, modules without the correct dependency on the implementation will not compile. This gives back-end implementors a set of type-level combinators for building the shape of their back-end. It also makes life easier for application writers, since the available methods are visible at compile-time, or write-time when using an IDE, such as Intellij Idea. If one was build a similar modular system in a Java style, this information would not be visible in the type signature of the database system, and could lead to exceptions being thrown at runtime due to an unimplemented method being called.
-
-The dependency management scheme can also be used by implementors to add their own extension modules.
-
-A simple example of type-level dependency management is the \texttt{query.dsl.components.BatchInserts} trait, which supplies some syntactic sugar for inserting items.
+This module system allows us to delegate dependency management to the type-system. Each module is designed as a mix-in trait. It can make requirements on the rest of the implementations by requiring mix-ins using self type annotation. Hence, modules without the correct dependency on the implementation will not compile. This gives back-end implementors a set of type-level combinators for building the shape of their back-end. It also makes life easier for application writers, since the available methods are visible at compile-time, or write-time when using an IDE, such as Intellij Idea. If one was build a similar modular system in a Java style, this information would not be visible in the type signature of the database system, and could lead to exceptions being thrown at runtime due to an unimplemented method being called. The dependency management scheme can also be used by implementors to add their own extension modules. A simple example of type-level dependency management is the \texttt{query.dsl.components.BatchInserts} trait, which supplies some syntactic sugar for inserting items.
 
 \begin{verbatim}
 trait BatchInserts[M[_], ToInsert[_, _], Valid[_]] {
@@ -218,7 +214,7 @@ object PairSyntax {
     
     
     implicit class Syntax2[Pair, A, B](pab: Pair[A, B]) {
-        // scala still cannot infer the typeclass "Valid"
+        // scala still cannot infer the type-class "Valid"
         def -->>[S[_], Valid[_]](s: S[B])(
             implicit pairs: PairQueries[Pair, S, Valid],
             va: Valid[A],
@@ -270,8 +266,16 @@ A lot of this flexibility and deferral to the scala type system is made possible
 
 
 \begin{verbatim}
-    trait DSL[M[_], Se[_], Pair[_, _], Single[_], Find[_], Path[_], ToInsert[_, _], Valid[_]]
-    extends Backend[M, Se, Pair, Single, Find, Path, ToInsert, Valid]
+    trait DSL[
+        M[_], 
+        Se[_], 
+        Pair[_, _], 
+        Single[_], 
+        Find[_], 
+        Path[_], 
+        ToInsert[_, _], 
+        Valid[_]
+    ] extends Backend[M, Se, Pair, Single, Find, Path, ToInsert, Valid]
       with PairSyntaxProvider[Pair, Single, Valid]
       with SingleSyntaxProvider[Pair, Single, Find, Valid]
       with SymmetricSyntaxProvider[Pair, Single, Valid]
@@ -286,7 +290,7 @@ A lot of this flexibility and deferral to the scala type system is made possible
 \subsection{Query Types}
 As with most tagless-final interfaces, the \texttt{Pair[A, B]} and \texttt{Single[A]} type constructors are provided as type parameters.
 \subsection{Type Validation}
-The \texttt{SchemaObject} type-class used in the original project to store application-programmers' types in the database is replaced by the \texttt{Valid[_]} type-class, allowing implementors to specify their own validity type-classes. This type-class specifies which types may be manipulated using the the query DSL. Implementations which store objects in a simple record-store, such as in my part II project, may use a typeclass which verifies types can be converted into a record of primitive types (i.e. a tuple of types such as \texttt{Int, Float, String}), whereas authors of more complex implementations may want to be able to manipulate types such as references or higher-order relations and so use a more complex type-class to allow this.
+The \texttt{SchemaObject} type-class used in the original project to store application-programmers' types in the database is replaced by the \texttt{Valid[_]} type-class, allowing implementors to specify their own validity type-classes. This type-class specifies which types may be manipulated using the the query DSL. Implementations which store objects in a simple record-store, such as in my part II project, may use a type-class which verifies types can be converted into a record of primitive types (i.e. a tuple of types such as \texttt{Int, Float, String}), whereas authors of more complex implementations may want to be able to manipulate types such as references or higher-order relations and so use a more complex type-class to allow this.
 
 \subsection{Return Types}
 The project is also polymorphic in the return type container and sequencing type constructors. The container type, \texttt{M} wraps the result of all operations, as it generalises the \texttt{Operation} monad used in the original project. The container type can be required to be a monad by using the \texttt{HasMonad[M]} mix-in. Other implementations may want to use another kind of type, such as \texttt{Rep} as the container type. The sequencing type constructor is the type of results returned by read queries. In the original project, it is implemented using eager \texttt{Set}s. Other implementations may want to use lazy sets instead, especially when dealing with large databases.
@@ -308,7 +312,7 @@ In order to apply this syntax to \texttt{p: P[A, B]}, the Scala type system woul
 
 I've provided several simple implementations for this project to showcase features.
 \section{Trivial implementation}
-The first implementation is one that trivially uses sets  to store objects in memory. The validity type-class is the "Universe" type class that verifies that there exists a finite universe of objects of the parameter type in memory. This implementation uses simple techniques to generate the DSL in a free manner.
+The first implementation is one that trivially uses sets  to store objects in memory. The validity type-class is the "Universe" type-class that verifies that there exists a finite universe of objects of the parameter type in memory. This implementation uses simple techniques to generate the DSL in a free manner.
 
 \section{Original Back-End}
 A second implementation is one that provides a set of connectors to allow a suitable DB instance to be used as as a L305-Project DSL instance. This is a simple case of deferring functionality to the instance's original methods and correctly filling in types.
@@ -345,7 +349,7 @@ This implementation can be found in \texttt{impl.part2}
     ...
 }
 \end{verbatim}
-\todo{Note: example of some some implementation of the part II backend converter}
+\todo{Note: partial example implementation of the part II back-end converter}
 
 \section{Byte Code Back-End}
 
@@ -355,11 +359,11 @@ In addition to these directly executing back-ends, I have also built a partial b
 This partial implementation allows parameterisation
 
 \subsection{Compilation Steps}
-This implementation first maps tagless final terms to a type-erased AST (found in package \texttt{impl.bytecode.erased.adt}). That is, the object types associated with each AST term are discarded. This allows us to make optimising transformations on the AST more easily. \texttt{Upto} terms are replaced with the equivalent \texttt{Exactly} terms, as seen in section 3.11.5 ("Complex Subexpression Elimination", page 61. Proof can be found in appendix C) of my dissertation. Finally, primitive relations, identity relations, and findables are converted to nodes indicating a call to external procedures provided by the sub-implementation.
+This implementation first maps tagless final terms to a type-erased AST (found in package \\\texttt{impl.bytecode.erased.adt}). That is, the object types associated with each AST term are discarded. This allows us to make optimising transformations on the AST more easily. \texttt{Upto} terms are replaced with the equivalent \texttt{Exactly} terms, as seen in section 3.11.5 ("Complex Subexpression Elimination", page 61. Proof can be found in appendix C) of my dissertation. Finally, primitive relations, identity relations, and findables are converted to nodes indicating a call to external procedures provided by the sub-implementation.
 
 The \texttt{Reads} module's methods are implemented by next compiling the AST into a bytecode program. Operations such as joins, unions, and intersections have opcode equivalents, whereas \texttt{Exactly} and \texttt{FixedPoint} operations are implemented using conditional loops. Furthermore, simple loop unrolling is used if the number of repetitions in an \texttt{Exactly} is less than 5. A binary exponentiation algorithm is used to find the fixed point.
 
-The \texttt{Reads} module's methods finally return a \texttt{Rep} type (not the same as in LMS) whose \texttt{run} method runs the packaged interpreter over the bytecode then uses subimplementation-provided methods to read values of the correct type from the result.
+The \texttt{Reads} module's methods finally return a \texttt{Rep} type (not the same as in LMS) whose \texttt{run} method runs the packaged interpreter over the bytecode then uses sub-implementation-provided methods to read values of the correct type from the result.
 
 
 \subsection{The Bytecode}
@@ -375,10 +379,10 @@ The bytecode consists of set of stack machine instructions and is type-parameter
 
 
 \subsection{Interpreters}
-Subimplementations should provide an interpreter for the bytecode. The partial implementation is parameterised in such a way that implementations may provide a safe, monadic, locked down interpreter or a faster, less safe one.
+Sub-implementations should provide an interpreter for the bytecode. The partial implementation is parameterised in such a way that implementations may provide a safe, monadic, locked down interpreter or a faster, less safe one.
 
 \subsection{Implementation}
-As an example, I have constructed a simple full implementation of the bytecode interpreter back-end. It implements the bytecode interpreter in a simple, imperative, stack machine. This does not use monads to control execution or handle errors and instead simply allows any exceptions to bubble up as in a Java program. The \texttt{Compilable} typeclass maps individual objects to a simple identifier which is processed by the stack machine.
+As an example, I have constructed a simple full implementation of the bytecode interpreter back-end. It implements the bytecode interpreter in a simple, imperative, stack machine. This does not use monads to control execution or handle errors and instead simply allows any exceptions to bubble up as in a Java program. The \texttt{Compilable} type-class maps individual objects to a simple identifier which is processed by the stack machine.
 
 \chapter{Free Implementations and Optimisation}
 Since the module system exposes polymorphism over many parts of the implementation of a DSL, we can look for ways to exploit this polymorphism to reduce the burden on DSL implementors.
@@ -403,12 +407,12 @@ A free implementation can be used by mixing it in with implementations of the re
 object MyDSL extends Dependency1[Types1] with Dependency2[Types2] with Free[Types]
 \end{verbatim}
 
-As an example, I have created a free implementation of \texttt{SimpleRepetition} depending on \texttt{SimplePairs} as explained above. This  implementation uses the exponentiation-by-squaring technique explained in my part II project (Section 3.11.5, "Complex Common Subexpression Elimination", page 61, proven in appendix C) and can be found in \texttt{query.dsl.free.implementation.FreeRepetitions}
+As an example, I have created a free implementation of \texttt{SimpleRepetition} depending on \\\texttt{SimplePairs} as explained above. This  implementation uses the exponentiation-by-squaring technique explained in my part II project (Section 3.11.5, "Complex Common Subexpression Elimination", page 61, proven in appendix C) and can be found in \texttt{query.dsl.free.implementation.FreeRepetitions}
 
-One downside to overuse of free implementations is that they may not provide well optimised or performant queries for particular back ends. For example, it may be possible to carry out a backend-specific optimisation that is not applicable in the general case.
+One downside to overuse of free implementations is that they may not provide well optimised or performant queries for particular back ends. For example, it may be possible to carry out a back-end-specific optimisation that is not applicable in the general case.
 
 \section{Optimisation}
-There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. For example, \texttt{Distinct} distributes over \texttt{and} and \texttt{chain} distributes over \texttt{or}, and \texttt{and} and \texttt{or} distribute over each other. These identities can be exploited to push "narrowing" operations (which decrease the size of the result, e.g. \texttt{and}) to the leaves of the AST and "widening" operations (which increase the size of the result, e.g. \texttt{or}) to the root of the AST. This means that the majority of query evaluation handles smaller subqueries and hence runs faster.
+There currently exist (and it may be possible to find more) examples of queries which can be optimised across many implementations. For example, \texttt{Distinct} distributes over \texttt{and} and \texttt{chain} distributes over \texttt{or}, and \texttt{and} and \texttt{or} distribute over each other. These identities can be exploited to push "narrowing" operations (which decrease the size of the result, e.g. \texttt{and}) to the leaves of the AST and "widening" operations (which increase the size of the result, e.g. \texttt{or}) to the root of the AST. This means that the majority of query evaluation handles smaller sub-queries and hence runs faster.
 
 An additional extension, given more time, might be to construct a combinator, which given a \texttt{PairQueries} implementation, returns a new implementation that can freely apply well typed optimisations to an internal GADT before folding over the GADT to produce a query of the original type. Unfortunately, as it is cumbersome to properly fold functions over the GADT in Scala, due to the type-system, I ended up cancelling this extension to the project.
 
@@ -417,7 +421,13 @@ An additional extension, given more time, might be to construct a combinator, wh
 Viewing and running this project is perhaps best performed in the Intellij Idea IDE, with SBT installed, as one can inspect the inferred type of a term using \keystroke{Alt} + \keystroke{=}, follow the definition of terms using \keystroke{ctrl} + \keystroke{b}, and go back to previous views using \keystroke{ctrl} + \keystroke{alt} + \keystroke{left-arrow}/\keystroke{right-arrow}.
 As the project has some dependencies on my part II project, SBT will download it from github and hence may take some time to run when the project is first compiled.
 
-Examples can be demonstrated by running the main methods in \texttt{examples.TrivialExamples}, \texttt{examples.BytecodeExamples}, and \texttt{examples.Part2Examples}. Each class gives some example queries and also definitions of the appropriate typeclass.
+Examples can be demonstrated by running the main methods in:
+\begin{itemize}
+    \item \texttt{examples.TrivialExamples}
+    \item \texttt{examples.BytecodeExamples}
+    \item \texttt{examples.Part2Examples}
+\end{itemize} 
+Each class gives some example queries and also definitions of the appropriate type-class.
 
 
 \chapter{Conclusion}
@@ -432,6 +442,6 @@ object MyFastImplementation extends FreeOptimisations(MyImplementation)
     with JoinIdentity[...]
 \end{verbatim}
 
-Further, I would like to have had more time to explore bytecode compilation. I would have liked to provide a tagless-final interface for constructing bytecode programs, in order to allow the code to be compiled to more exotic backends, such as cross-compilation.
+Further, I would like to have had more time to explore bytecode compilation. I would have liked to provide a tagless-final interface for constructing bytecode programs, in order to allow the code to be compiled to more exotic back-ends, such as cross-compilation.
     
 \end{document}
