@@ -1,0 +1,7 @@
+// syntax provided with an import.
+            import MyDSL._
+            val myPair: MyPair[Dog, Cat] = ...
+            val mySingle: MySingle[Cat] = ...
+            
+            // syntax can be used without type annotations
+            val myComposite = myPair -->> mySingle
