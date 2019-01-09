@@ -70,7 +70,7 @@ CRSID:      & \bf at736 \\
 College:    & \bf St John's College  \\
 Module:     & \bf Metaprogramming, L305 \\
 Assignment: & \bf 4 \\
-Word Count: & \bf \todo{todo}\footnote{Calculated by running \texttt{texCount (http://app.uio.no/ifi/texcount/online.php)}}   \\
+Word Count: & \bf 2913\footnote{Calculated by running \texttt{texCount (http://app.uio.no/ifi/texcount/online.php)} over the body of this document}   \\
                    \\ 
 \end{tabular}
 }
@@ -93,27 +93,27 @@ The original project uses an algebraic-datatype-based query language to specify 
 \todo{Split these up better}
 \begin{equation}\label{PairQueries}
     \begin{split}
-    P  &\rightarrow Rel(R) \mbox{ Find pairs related by the named relation R}\\
-    &\mid RevRel(R) \mbox{ Find pairs related by the named relation R in the reverse direction}\\
-    &\mid Chain(P, P) \mbox{   Find pairs related by the first sub-query followed by the second}\\
-    &\mid And(P, P) \mbox{  Find pairs related by both of the sub-queries}\\
-    &\mid AndRight(P, S) \mbox{  Find pairs related by P where the right value is a result of S}\\
-    &\mid AndLeft(P, S) \mbox{  Find pairs related by P where the left value is a result of S}\\
-    &\mid Or(P, P) \mbox{  Find pairs related by either of the sub-queries}\\
-    &\mid Distinct(P) \mbox{  Find pairs related by P that are not symmetrical}\\
-    &\mid Id_A \mbox{ Identity relation}\\
-    &\mid Exactly(\mathit{n}, P) \mbox{  Find pairs related by n repetitions of P}\\
-    &\mid Upto(\mathit{n}, P) \mbox{  Find pairs related by up to n repetitions of P}\\
-    &\mid FixedPoint(P) \mbox{  Find the transitive closure of P}\\
+    P  &\rightarrow Rel(R) \quad\quad\text{ Find pairs related by the named relation R}\\
+    &\mid RevRel(R) \quad\quad\text{ Find pairs related by the named relation R in the reverse direction}\\
+    &\mid Chain(P, P) \quad\quad\text{   Find pairs related by the first sub-query followed by the second}\\
+    &\mid And(P, P) \quad\quad\text{  Find pairs related by both of the sub-queries}\\
+    &\mid AndRight(P, S) \quad\quad\text{  Find pairs related by P where the right value is a result of S}\\
+    &\mid AndLeft(P, S) \quad\quad\text{  Find pairs related by P where the left value is a result of S}\\
+    &\mid Or(P, P) \quad\quad\text{  Find pairs related by either of the sub-queries}\\
+    &\mid Distinct(P) \quad\quad\text{  Find pairs related by P that are not symmetrical}\\
+    &\mid Id_A \quad\quad\text{ Identity relation}\\
+    &\mid Exactly(\mathit{n}, P) \quad\quad\text{  Find pairs related by n repetitions of P}\\
+    &\mid Upto(\mathit{n}, P) \quad\quad\text{  Find pairs related by up to n repetitions of P}\\
+    &\mid FixedPoint(P) \quad\quad\text{  Find the transitive closure of P}\\
     \end{split}
     \end{equation} 
 
     \begin{equation}\label{SingleQueries}
         \begin{split}
-        S & \rightarrow Find(F) \mbox{ Find values that match the findable F}\\
-        &\mid From(S, P) \mbox{ Find values that are reachable from results of S via P}\\
-        &\mid AndS(S, S) \mbox{ Find values that are results of both sub-queries}\\
-        &\mid OrS(S, S) \mbox{ Find values that are results of either sub-query}
+        S & \rightarrow Find(F) \quad\quad\text{ Find values that match the findable F}\\
+        &\mid From(S, P) \quad\quad\text{ Find values that are reachable from results of S via P}\\
+        &\mid AndS(S, S) \quad\quad\text{ Find values that are results of both sub-queries}\\
+        &\mid OrS(S, S) \quad\quad\text{ Find values that are results of either sub-query}
         \end{split}
     \end{equation} 
 
@@ -153,7 +153,7 @@ This section introduces the new structure of the DSL.
 In the use cases of this project, I make reference to several different classes of people.
 
 \begin{itemize}
-    \item \textbf{specification writer} - The person, in this case myself, building the modules and combinators used to construct back end implementations.
+    \item \textbf{Specification writer} - The person, in this case myself, building the modules and combinators used to construct back end implementations.
     \item \textbf{Implementor} - The person using this project to build a graph query DSL. The specification of modules should be designed in such a way as to both give the implementor plenty of tools to easily produce implementations but also allow them as much flexibility as possible to do so.
     \item \textbf{Application Programmer} - The person using a graph query DSL, built by the implementor, to build an application. Ideally, Syntax provided to the application programmer should be as clean as possible with few type annotations.
 
